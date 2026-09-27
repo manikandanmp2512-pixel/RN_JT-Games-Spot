@@ -1,0 +1,10 @@
+const router = require("express").Router();
+const multer = require("multer");
+const auth = require("../middleware/authMiddleware");
+const controller = require("../controllers/chessController");
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 }, fileFilter: (req, file, cb) => cb(null, file.mimetype.startsWith("image/")) });
+router.get("/presence", auth, controller.presence);
+router.get("/friends", auth, controller.friends);
+router.get("/friend-requests", auth, controller.friendRequests);
+router.post("/profile/photo", auth, upload.single("photo"), controller.uploadPhoto);
+module.exports = router;
