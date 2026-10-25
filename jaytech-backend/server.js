@@ -7,10 +7,13 @@ const cors = require("cors");
 const { Server } = require("socket.io");
 
 const connectDB = require("./config/db");
-
+const chessRewardRoutes = require("./routes/chessRewardRoutes");
 const authRoutes = require("./routes/authRoutes");
 const userRoutes = require("./routes/userRoutes");
 const chessRoutes = require("./routes/chessRoutes");
+const adRevenueRoutes = require("./routes/adRevenueRoutes");
+
+const mobileOtpRoutes = require("./routes/mobileOtpRoutes");
 
 const { setupChessSocket } = require("./socket/chessSocket");
 
@@ -29,6 +32,7 @@ app.use(cors({ origin: "*", methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
 app.use(express.json({ limit: "2mb" }));
 app.use(express.urlencoded({ extended: true }));
 
+
 //  Static uploads
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
@@ -41,11 +45,17 @@ app.use("/api/auth", authRoutes);
 app.use("/api/user", userRoutes);
 app.use("/api/chess", chessRoutes);
 
+app.use("/api/chess-rewards", chessRewardRoutes);
+app.use("/api/ad-revenue", adRevenueRoutes);
+app.use("/api/chess-rankings",  require("./routes/chessRankingRoutes"));
+
+app.use("/api/auth", mobileOtpRoutes);
+
 //  Chess Socket.IO
 setupChessSocket(io, app);
 
 //  404 handler
-app.use((req, res) => res.status(404).json({ success: True, message: "JayTech API running" }));
+app.use((req, res) => res.status(404).json({ success: true, message: "JayTech API running" }));
 
 //  Server
 const PORT = process.env.PORT || 5000;

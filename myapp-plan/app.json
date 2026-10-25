@@ -1,10 +1,10 @@
 {
   "expo": {
-    "name": "Jay T-Games",
+    "name": "Jay Tech-Games",
     "slug": "jay-tech",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/logo.gif",
+    "icon": "./assets/images/logo.png",
     "scheme": "jay-tech",
     "userInterfaceStyle": "automatic",
     "ios": {
@@ -12,10 +12,10 @@
     },
     "android": {
       "package": "com.jaytech.app",
-      "usesCleartextTraffic": "true",
+      // "usesCleartextTraffic": "true",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/images.jpg",
+        "foregroundImage": "./assets/images/applogo.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
@@ -29,7 +29,7 @@
     },
     "web": {
       "output": "static",
-      "favicon": "./assets/images/main_logo.png"
+      "favicon": "./assets/images/fire_logo.png"
     },
     "plugins": [
       "expo-router",
@@ -41,7 +41,13 @@
           "imageWidth": 76
         }
       ],
-      "expo-audio"
+      "expo-audio",
+      [
+        "react-native-google-mobile-ads",
+        {
+          "androidAppId": "ca-app-pub-6072789118330129~3991498620"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

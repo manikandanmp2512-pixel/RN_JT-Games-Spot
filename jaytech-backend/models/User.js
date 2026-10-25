@@ -51,7 +51,7 @@ const UserSchema = new mongoose.Schema(
 
     rating: {
       type: Number,
-      default: 1200,
+      default: 100,
     },
 
     gems: {

@@ -1,9 +1,13 @@
+import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   BackHandler,
   Pressable,
+  ScrollView,
+  StatusBar,
   StyleSheet,
   Text,
   View,
@@ -11,640 +15,731 @@ import {
 
 import Navbar from "@/components/Navbar";
 import { useAppTheme } from "@/context/AppThemeContext";
+import { MaterialCommunityIcons } from "@expo/vector-icons";
+
+const GAMES = [
+  {
+    id: "chess",
+    title: "CHESS",
+    category: "STRATEGY GAME",
+    route: "/chess" as const,
+    icon: "extension-puzzle" as const,
+    colors: ["#031D3D", "#06112C"] as const,
+    neon: "#00C8FF",
+    glow: "#087BFF",
+  },
+  {
+    id: "carrom",
+    title: "CARROM",
+    category: "PRECISION GAME",
+    route: "/carrom" as const,
+    icon: "disc" as const,
+    colors: ["#20104A", "#100C2A"] as const,
+    neon: "#A65CFF",
+    glow: "#6527FF",
+  },
+  {
+    id: "ludo",
+    title: "LUDO",
+    category: "CLASSIC GAME",
+    route: "/ludo" as const,
+    icon: "dice" as const,
+    colors: ["#33200B", "#171126"] as const,
+    neon: "#FFB52E",
+    glow: "#FF7B16",
+  },
+];
 
 export default function UserScreen() {
   const { isDark } = useAppTheme();
 
-  const [userName, setUserName] = useState("User");
-
-  // =========================================================
-  // THEME COLORS
-  // =========================================================
-
-  const colors = {
-    background: isDark
-      ? "#071E2B"
-      : "#F5F7FA",
-
-    card: isDark
-      ? "#17394B"
-      : "#FFFFFF",
-
-    border: isDark
-      ? "#2C596B"
-      : "#D7E1E6",
-
-    title: isDark
-      ? "#FFFFFF"
-      : "#071E2B",
-
-    subtitle: isDark
-      ? "#9DB5C0"
-      : "#607784",
-
-    gameTitle: "#FFFFFF",
-
-    gameSubtitle: isDark
-      ? "#C6D5DC"
-      : "#E6EEF2",
-
-    iconBackground: isDark
-      ? "rgba(244,160,0,0.18)"
-      : "rgba(244,160,0,0.14)",
-
-    iconBorder: isDark
-      ? "rgba(244,160,0,0.35)"
-      : "rgba(244,160,0,0.30)",
-
-    footer: isDark
-      ? "#7894A2"
-      : "#708692",
-
-    shadow: "#000000",
-  };
-
-  // =========================================================
-  // LOAD LOGGED USER
-  // =========================================================
+  const [username, setUsername] = useState("Player");
+  const [initial, setInitial] = useState("P");
 
   useEffect(() => {
-    const loadUser = async () => {
+    let mounted = true;
+
+    const loadUsername = async () => {
       try {
-        const userData =
-          await AsyncStorage.getItem("user");
+        const storedUser = await AsyncStorage.getItem("user");
 
-        if (userData) {
-          const user = JSON.parse(userData);
+        if (!storedUser) return;
 
-          const fullName =
-            `${user?.fname || ""} ${
-              user?.lname || ""
-            }`.trim();
+        const user = JSON.parse(storedUser);
+        const fname = String(user?.fname ?? "").trim();
+        const lname = String(user?.lname ?? "").trim();
+        const fullName = `${fname} ${lname}`.trim();
 
-          setUserName(fullName || "User");
+        if (mounted && fullName) {
+          setUsername(fullName);
+          setInitial(fname.charAt(0).toUpperCase() || "P");
         }
       } catch (error) {
-        console.error(
-          "User loading error:",
-          error
-        );
+        console.log("Unable to load user details:", error);
       }
     };
 
-    loadUser();
-  }, []);
-
-  // =========================================================
-  // PREVENT BACK TO MAIN INDEX WHILE LOGGED IN
-  // =========================================================
-
-  useEffect(() => {
-    const onBackPress = () => {
-      console.log(
-        "🔒 User is logged in - staying on User Page"
-      );
-
-      return true;
-    };
-
-    const backHandler =
-      BackHandler.addEventListener(
-        "hardwareBackPress",
-        onBackPress
-      );
+    loadUsername();
 
     return () => {
-      backHandler.remove();
+      mounted = false;
     };
   }, []);
 
-  // =========================================================
-  // GAME NAVIGATION
-  // =========================================================
+  // Preserve the existing Android back-button behavior.
+  useEffect(() => {
+    const subscription = BackHandler.addEventListener(
+      "hardwareBackPress",
+      () => true
+    );
 
-  const openChess = () => {
-    router.push("/chess");
-  };
+    return () => subscription.remove();
+  }, []);
 
-  const openCarrom = () => {
-    router.push("/carrom");
-  };
+  const openGame = useCallback((route: "/chess" | "/carrom" | "/ludo") => {
+    router.push(route);
+  }, []);
 
-  const openLudo = () => {
-    router.push("/ludo");
-  };
-
-  // =========================================================
-  // SCREEN
-  // =========================================================
+  const pageBg = isDark ? "#020817" : "#07152A";
+  const textColor = "#F5F8FF";
+  const mutedColor = "#A7C4EA";
 
   return (
-    <View
-      style={[
-        styles.containers,
-        {
-          backgroundColor: colors.background,
-        },
-      ]}
-    >
-      {/* =====================================================
-          NAVBAR
-      ===================================================== */}
+    <View style={[styles.screen, { backgroundColor: pageBg }]}>
+      <StatusBar barStyle="light-content" backgroundColor={pageBg} />
 
-      <Navbar />
-
-      {/* =====================================================
-          USER PAGE CONTENT
-      ===================================================== */}
-
-      <View style={styles.content}>
-        <View
-          style={[
-            styles.card,
-            {
-              backgroundColor: colors.card,
-              borderColor: colors.border,
-            },
-          ]}
-        >
-          {/* =================================================
-              TOP ACCENT
-          ================================================= */}
-
-          <View style={styles.topAccent} />
-
-          {/* =================================================
-              WELCOME
-          ================================================= */}
-
-          <Text
-            style={[
-              styles.title,
-              {
-                color: colors.title,
-              },
-            ]}
-          >
-            Welcome, {userName}! 🎉
-          </Text>
-
-          <Text
-            style={[
-              styles.subtitle,
-              {
-                color: colors.subtitle,
-              },
-            ]}
-          >
-            Choose your game and start playing.
-          </Text>
-
-          {/* =================================================
-              CHESS
-          ================================================= */}
-
-          <Pressable
-            style={({ pressed }) => [
-              styles.gameButton,
-              styles.chessButton,
-              {
-                borderColor: colors.border,
-              },
-              pressed && styles.pressedButton,
-            ]}
-            onPress={openChess}
-          >
-            <View
-              style={[
-                styles.gameIcon,
-                {
-                  backgroundColor:
-                    colors.iconBackground,
-                  borderColor:
-                    colors.iconBorder,
-                },
-              ]}
-            >
-              <Text style={styles.iconText}>
-                ♟️
-              </Text>
-            </View>
-
-            <View style={styles.gameContent}>
-              <Text
-                style={[
-                  styles.gameTitle,
-                  {
-                    color: colors.gameTitle,
-                  },
-                ]}
-              >
-                Play Chess
-              </Text>
-
-              <Text
-                style={[
-                  styles.gameSubtitle,
-                  {
-                    color:
-                      colors.gameSubtitle,
-                  },
-                ]}
-              >
-                Classic strategy game
-              </Text>
-            </View>
-
-            <Text style={styles.arrow}>
-              →
-            </Text>
-          </Pressable>
-
-          {/* =================================================
-              CARROM
-          ================================================= */}
-
-          <Pressable
-            style={({ pressed }) => [
-              styles.gameButton,
-              styles.carromButton,
-              {
-                borderColor: colors.border,
-              },
-              pressed && styles.pressedButton,
-            ]}
-            onPress={openCarrom}
-          >
-            <View
-              style={[
-                styles.gameIcon,
-                {
-                  backgroundColor:
-                    colors.iconBackground,
-                  borderColor:
-                    colors.iconBorder,
-                },
-              ]}
-            >
-              <Text style={styles.iconText}>
-                🎯
-              </Text>
-            </View>
-
-            <View style={styles.gameContent}>
-              <Text
-                style={[
-                  styles.gameTitle,
-                  {
-                    color: colors.gameTitle,
-                  },
-                ]}
-              >
-                Play Carrom
-              </Text>
-
-              <Text
-                style={[
-                  styles.gameSubtitle,
-                  {
-                    color:
-                      colors.gameSubtitle,
-                  },
-                ]}
-              >
-                Strike, score & win
-              </Text>
-            </View>
-
-            <Text style={styles.arrow}>
-              →
-            </Text>
-          </Pressable>
-
-          {/* =================================================
-              LUDO
-          ================================================= */}
-
-          <Pressable
-            style={({ pressed }) => [
-              styles.gameButton,
-              styles.ludoButton,
-              {
-                borderColor: colors.border,
-              },
-              pressed && styles.pressedButton,
-            ]}
-            onPress={openLudo}
-          >
-            <View
-              style={[
-                styles.gameIcon,
-                {
-                  backgroundColor:
-                    colors.iconBackground,
-                  borderColor:
-                    colors.iconBorder,
-                },
-              ]}
-            >
-              <Text style={styles.iconText}>
-                🎲
-              </Text>
-            </View>
-
-            <View style={styles.gameContent}>
-              <Text
-                style={[
-                  styles.gameTitle,
-                  {
-                    color: colors.gameTitle,
-                  },
-                ]}
-              >
-                Play Ludo
-              </Text>
-
-              <Text
-                style={[
-                  styles.gameSubtitle,
-                  {
-                    color:
-                      colors.gameSubtitle,
-                  },
-                ]}
-              >
-                Roll the dice & race
-              </Text>
-            </View>
-
-            <Text style={styles.arrow}>
-              →
-            </Text>
-          </Pressable>
-
-          {/* =================================================
-              FOOTER
-          ================================================= */}
-
-          <Text
-            style={[
-              styles.footerText,
-              {
-                color: colors.footer,
-              },
-            ]}
-          >
-            © Jay Tech
-          </Text>
-        </View>
+      <View style={styles.navContainer}>
+        <Navbar />
       </View>
+
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
+        <View style={styles.headerInner}>
+          <LinearGradient
+            colors={["#00D5FF", "#426DFF", "#7D42FF"]}
+            style={styles.brandIcon}
+          >
+            <Ionicons name="game-controller" size={32} color="#FFFFFF" />
+          </LinearGradient>
+          <View style={styles.profileOuter}>
+            <View style={styles.profileInner}>
+              <Text style={styles.profileInitial}>{initial}</Text>
+            </View>
+          </View>
+          <View style={styles.headerStatus}>
+            <View style={styles.statusDot} />
+            <Text style={styles.statusText}>ONLINE</Text>
+          </View>
+        </View>
+
+        {/* NEON BRAND HEADER */}
+        {/* <LinearGradient
+          colors={["#007DFF", "#273A92", "#11182F"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.headerOuter}
+        >
+          <View style={styles.headerInner}>
+            
+
+            <View style={styles.brandCopy}>
+              <Text style={styles.brandTitle}>
+                Jay <Text style={styles.brandBlue}>Tech</Text>
+              </Text>
+              <Text style={styles.brandSubtitle}>GAMES SPOT</Text>
+            </View>
+
+
+          </View>
+        </LinearGradient> */}
+
+        {/* HERO GAMING PANEL */}
+        <LinearGradient
+          colors={["#008DFF", "#333BFF", "#8B42FF", "#FFAA35"]}
+          locations={[0, 0.36, 0.72, 1]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.heroBorder}
+        >
+          <View style={styles.heroPanel}>
+            <View style={styles.heroDecorOne} />
+            <View style={styles.heroDecorTwo} />
+
+            <View style={styles.heroPill}>
+              <View style={styles.heroPillDot} />
+              <Text style={styles.heroPillText}>
+                PLAY {"\u2022"} CONNECT {"\u2022"} COMPLETE
+              </Text>
+            </View>
+
+            <Text style={styles.welcomeHeading}>
+              <Text style={styles.heroJay}>Jay Tech</Text>
+            </Text>
+            <Text style={styles.heroSubheading}>Games Spot</Text>
+
+            <View style={styles.heroAccentLine}>
+              <View style={styles.accentLine} />
+              <Ionicons name="sparkles" size={17} color="#00D9FF" />
+              <View style={styles.accentLine} />
+            </View>
+
+            {/* GAME CARDS */}
+            <View style={styles.gameList}>
+              {GAMES.map((game, index) => (
+                <Pressable
+                  key={game.id}
+                  onPress={() => openGame(game.route)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Open ${game.title}`}
+                  style={({ pressed }) => [
+                    styles.gameCardWrapper,
+                    pressed && styles.pressed,
+                  ]}
+                >
+                  <LinearGradient
+                    colors={[game.neon, game.glow, game.neon]}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.gameBorder}
+                  >
+                    <LinearGradient
+                      colors={[game.colors[0], game.colors[1]]}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 1 }}
+                      style={styles.gameCard}
+                    >
+                      {/* <View style={styles.gameCardTop}>
+                        <Text style={styles.gameNumber}>0{index + 1}</Text>
+                        <Ionicons
+                          name="arrow-up-outline"
+                          size={18}
+                          color={game.neon}
+                          style={styles.diagonalArrow}
+                        />
+                      </View> */}
+
+                      <View
+                        style={[
+                          styles.gameIconCircle,
+                          {
+                            borderColor: game.neon,
+                            shadowColor: game.neon,
+                          },
+                        ]}
+                      >
+                        {game.id === "chess" ? (
+                          <MaterialCommunityIcons
+                            name="chess-knight"
+                            size={36}
+                            color="#00C8FF"
+                          />
+                        ) : game.id === "carrom" ? (
+                          <MaterialCommunityIcons
+                            name="bullseye"
+                            size={36}
+                            color="#A65CFF"
+                          />
+                        ) : (
+                          <MaterialCommunityIcons
+                            name="dice-multiple"
+                            size={36}
+                            color="#FFB52E"
+                          />
+                        )}
+                        {/* <Ionicons
+                          name={game.icon}
+                          size={35}
+                          color={game.neon}
+                        /> */}
+                      </View>
+
+                      <Text style={[styles.gameTitle, { color: game.neon }]}>
+                        {game.title}
+                      </Text>
+
+                      <Text style={[styles.gameCategory, { color: game.neon }]}>
+                        {game.category}
+                      </Text>
+
+                      <View
+                        style={[
+                          styles.gameUnderline,
+                          { backgroundColor: game.neon },
+                        ]}
+                      />
+                    </LinearGradient>
+                  </LinearGradient>
+                </Pressable>
+              ))}
+            </View>
+
+            {/* COMMUNITY MESSAGE */}
+            <View style={styles.communityDivider} />
+
+            <View style={styles.communityRow}>
+              <View style={styles.communityDot} />
+
+              <Text style={styles.communityText}>
+                YOUR GAME.{" "}
+                <Text style={styles.communityHighlight}>YOUR COMMUNITY.</Text>
+              </Text>
+
+              <View style={styles.communityDot} />
+            </View>
+          </View>
+        </LinearGradient>
+
+        {/* FOOTER */}
+        <View style={styles.footer}>
+          <LinearGradient
+            colors={["#06152C", "#00AFFF", "#704BFF", "#06152C"]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.footerLine}
+          />
+
+          <View style={styles.footerDiamond} />
+
+          <Text style={styles.footerCopyright}>© 2026 Jay Technologies</Text>
+        </View>
+      </ScrollView>
     </View>
   );
 }
 
-// =============================================================
-// STYLES
-// =============================================================
-
 const styles = StyleSheet.create({
-  // ===========================================================
-  // CONTAINER
-  // ===========================================================
-
-  containers: {
-    marginTop: 30,
+  screen: {
     flex: 1,
   },
 
-  // ===========================================================
-  // CONTENT
-  // ===========================================================
-
-  content: {
-    flex: 1,
-
-    justifyContent: "center",
-
-    alignItems: "center",
-
-    padding: 20,
+  navContainer: {
+    zIndex: 2,
   },
 
-  // ===========================================================
-  // MAIN CARD
-  // ===========================================================
+  scrollContent: {
+    paddingHorizontal: 15,
+    paddingTop: 12,
+    paddingBottom: 35,
+  },
 
-  card: {
-    width: "100%",
-
-    maxWidth: 450,
-
-    padding: 24,
-
-    borderRadius: 22,
-
-    borderWidth: 1,
-
+  // Header
+  headerOuter: {
+    padding: 1.5,
+    borderRadius: 29,
+    marginBottom: 25,
+    shadowColor: "#008DFF",
+    shadowOpacity: 0.35,
+    shadowRadius: 17,
     elevation: 8,
-
-    shadowColor: "#000000",
-
-    shadowOffset: {
-      width: 0,
-      height: 5,
-    },
-
-    shadowOpacity: 0.20,
-
-    shadowRadius: 8,
-
-    alignItems: "center",
   },
 
-  // ===========================================================
-  // TOP ACCENT
-  // ===========================================================
-
-  topAccent: {
-    width: 65,
-
-    height: 5,
-
-    borderRadius: 5,
-
-    backgroundColor: "#F4A000",
-
-    marginBottom: 18,
-  },
-
-  // ===========================================================
-  // TITLE
-  // ===========================================================
-
-  title: {
-    fontSize: 27,
-
-    fontWeight: "900",
-
-    textAlign: "center",
-
-    marginBottom: 7,
-  },
-
-  // ===========================================================
-  // SUBTITLE
-  // ===========================================================
-
-  subtitle: {
-    fontSize: 14,
-
-    textAlign: "center",
-
-    marginBottom: 24,
-
-    lineHeight: 20,
-  },
-
-  // ===========================================================
-  // GAME BUTTON
-  // ===========================================================
-
-  gameButton: {
-    width: "100%",
-
-    height: 78,
-
-    borderRadius: 16,
-
-    flexDirection: "row",
-
-    alignItems: "center",
-
+  headerInner: {
+    // minHeight: 29,
+    // borderRadius: 28,
+    // backgroundColor: "#061126",
     paddingHorizontal: 14,
-
-    marginBottom: 13,
-
-    borderWidth: 1,
-
-    elevation: 5,
-
-    shadowColor: "#000000",
-
-    shadowOffset: {
-      width: 0,
-      height: 3,
-    },
-
-    shadowOpacity: 0.18,
-
-    shadowRadius: 5,
-  },
-
-  // ===========================================================
-  // CHESS
-  // ===========================================================
-
-  chessButton: {
-    backgroundColor: "#24536A",
-  },
-
-  // ===========================================================
-  // CARROM
-  // ===========================================================
-
-  carromButton: {
-    backgroundColor: "#7A5318",
-  },
-
-  // ===========================================================
-  // LUDO
-  // ===========================================================
-
-  ludoButton: {
-    backgroundColor: "#4B3A73",
-  },
-
-  // ===========================================================
-  // ICON
-  // ===========================================================
-
-  gameIcon: {
-    width: 50,
-
-    height: 50,
-
-    borderRadius: 15,
-
+    // paddingVertical: 12,
+    flexDirection: "row",
     alignItems: "center",
+    gap: 10,
+  },
 
+  brandIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
     justifyContent: "center",
-
-    borderWidth: 1,
+    alignItems: "center",
   },
 
-  iconText: {
-    fontSize: 27,
-  },
-
-  // ===========================================================
-  // GAME CONTENT
-  // ===========================================================
-
-  gameContent: {
+  brandCopy: {
     flex: 1,
-
-    marginLeft: 13,
   },
 
-  gameTitle: {
-    fontSize: 18,
-
+  brandTitle: {
+    color: "#FFFFFF",
+    fontSize: 21,
     fontWeight: "900",
+    letterSpacing: -0.7,
   },
 
-  gameSubtitle: {
-    fontSize: 11,
+  brandBlue: {
+    color: "#00D5FF",
+  },
 
+  brandSubtitle: {
+    color: "#A9C8FF",
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 2,
     marginTop: 3,
   },
 
-  // ===========================================================
-  // ARROW
-  // ===========================================================
+  headerStatus: {
+    marginLeft: 180,
+    flexDirection: "row",
+    alignItems: "baseline",
+    gap: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+    borderRadius: 15,
+    backgroundColor: "#12223F",
+  },
 
-  arrow: {
-    color: "#F4A000",
+  statusDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: "#00E6A2",
+  },
 
-    fontSize: 27,
+  statusText: {
+    fontSize: 8,
+    fontWeight: "900",
+    color: "#B8D7FF",
+    letterSpacing: 0.5,
+  },
 
+  profileOuter: {
+    width: 43,
+    height: 43,
+    borderRadius: 22,
+    padding: 1.5,
+    backgroundColor: "#2E91FF",
+  },
+
+  profileInner: {
+    flex: 1,
+    borderRadius: 21,
+    backgroundColor: "#172745",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  profileInitial: {
+    color: "#FFFFFF",
+    fontSize: 19,
+    fontWeight: "900",
+  },
+
+  // Main hero
+  heroBorder: {
+    marginTop: 15,
+    padding: 1,
+    // borderTopRightRadius: 200,
+    // borderTopLeftRadius: 200,
+    borderRadius: 37,
+    shadowColor: "#087BFF",
+    shadowOpacity: 0.42,
+    shadowRadius: 24,
+    elevation: 12,
+  },
+
+  heroPanel: {
+    // backgroundColor: "#030D22",
+    borderRadius: 34,
+    paddingHorizontal: 16,
+    paddingTop: 27,
+    paddingBottom: 23,
+    overflow: "hidden",
+    alignItems: "center",
+  },
+
+  heroDecorOne: {
+    position: "absolute",
+    width: 220,
+    height: 220,
+    borderRadius: 110,
+    backgroundColor: "#071E46",
+    top: -150,
+    left: -115,
+    opacity: 0.6,
+  },
+
+  heroDecorTwo: {
+    position: "absolute",
+    width: 180,
+    height: 180,
+    borderRadius: 90,
+    backgroundColor: "#241044",
+    right: -125,
+    top: 170,
+    opacity: 0.5,
+  },
+
+  heroPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 9,
+    borderWidth: 1,
+    borderColor: "#126BFF",
+    borderRadius: 25,
+    paddingHorizontal: 15,
+    paddingVertical: 11,
+    backgroundColor: "#071631",
+    marginBottom: 27,
+    maxWidth: "100%",
+  },
+
+  heroPillDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 5,
+    backgroundColor: "#00E5A8",
+  },
+
+  heroPillText: {
+    color: "#D6E5FF",
+    fontSize: 10,
+    fontWeight: "900",
+    letterSpacing: 1.2,
+  },
+
+  welcomeHeading: {
+    color: "#F2F6FF",
+    fontSize: 35,
     fontWeight: "800",
-
-    marginRight: 5,
+    textAlign: "center",
+    letterSpacing: -0.5,
   },
 
-  // ===========================================================
-  // PRESS EFFECT
-  // ===========================================================
-
-  pressedButton: {
-    opacity: 0.75,
-
-    transform: [
-      {
-        scale: 0.98,
-      },
-    ],
+  heroBrand: {
+    textAlign: "center",
+    marginTop: 0,
+    fontSize: 47,
+    fontWeight: "900",
+    letterSpacing: -2,
   },
 
-  // ===========================================================
-  // FOOTER
-  // ===========================================================
+  heroJay: {
+    color: "#00D8FF",
+  },
 
-  footerText: {
+  heroTech: {
+    color: "#7C69FF",
+  },
+
+  heroSubheading: {
+    color: "#FFC65E",
+    fontSize: 28,
+    fontWeight: "900",
+    textAlign: "center",
+    letterSpacing: -0.5,
+    marginTop: -1,
+  },
+
+  greeting: {
+    color: "#A8C8FF",
+    fontSize: 16,
+    fontWeight: "800",
+    marginTop: 17,
+    textAlign: "center",
+  },
+
+  heroDescription: {
+    color: "#C0D6F7",
     fontSize: 12,
+    lineHeight: 21,
+    textAlign: "center",
+    marginTop: 10,
+    marginBottom: 20,
+  },
 
-    marginTop: 6,
+  heroAccentLine: {
+    width: "75%",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 13,
+    marginTop: 20,
+    marginBottom: 24,
+  },
 
-    fontWeight: "600",
+  accentLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: "#123B78",
+  },
+
+  // Game cards
+  gameList: {
+    width: "105%",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+  },
+
+  gameCardWrapper: {
+    flex: 1,
+    minWidth: 0,
+    borderRadius: 19,
+  },
+
+  gameBorder: {
+    flex: 1,
+    padding: 1.5,
+    borderRadius: 19,
+    // maxWidth: 200,
+    gap: 2,
+  },
+
+  gameCard: {
+    flex: 1,
+    minHeight: 205,
+    borderRadius: 18,
+    alignItems: "center",
+    paddingHorizontal: 5,
+    paddingTop: 11,
+    paddingBottom: 12,
+  },
+
+  gameCardTop: {
+    width: "100%",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 4,
+  },
+
+  gameNumber: {
+    color: "#9DB9E3",
+    fontSize: 9,
+    fontWeight: "900",
+    letterSpacing: 1,
+  },
+
+  diagonalArrow: {
+    transform: [{ rotate: "45deg" }],
+  },
+
+  gameIconCircle: {
+    width: 68,
+    height: 68,
+    borderRadius: 35,
+    borderWidth: 1.5,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#08152E",
+    marginTop: 15,
+    marginBottom: 12,
+    shadowOpacity: 0.55,
+    shadowRadius: 11,
+    elevation: 6,
+  },
+
+  gameTitle: {
+    fontSize: 14,
+    fontWeight: "900",
+    textAlign: "center",
+    letterSpacing: 0.2,
+  },
+
+  gameDescription: {
+    color: "#D0DDF4",
+    fontSize: 9,
+    lineHeight: 14,
+    textAlign: "center",
+    marginTop: 7,
+    minHeight: 28,
+  },
+
+  gameCategory: {
+    fontSize: 7,
+    fontWeight: "900",
+    letterSpacing: 0.5,
+    textAlign: "center",
+    marginTop: 10,
+  },
+
+  gameUnderline: {
+    height: 3,
+    width: 31,
+    borderRadius: 4,
+    marginTop: 12,
+  },
+
+  pressed: {
+    opacity: 0.82,
+    transform: [{ scale: 0.97 }],
+  },
+
+  // Community
+  communityDivider: {
+    height: 1,
+    backgroundColor: "#15335B",
+    width: "100%",
+    marginTop: 25,
+    marginBottom: 18,
+  },
+
+  communityRow: {
+    width: "100%",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+
+  communityDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 4,
+    backgroundColor: "#00C8FF",
+  },
+
+  communityText: {
+    color: "#B8D0F5",
+    fontSize: 9,
+    fontWeight: "900",
+    letterSpacing: 0.8,
+    textAlign: "center",
+  },
+
+  communityHighlight: {
+    color: "#00D8FF",
+  },
+
+  // Footer
+  footer: {
+    alignItems: "center",
+    paddingTop: 28,
+    paddingBottom: 6,
+  },
+
+  footerLine: {
+    width: "76%",
+    height: 2,
+    borderRadius: 2,
+    marginBottom: 19,
+  },
+
+  footerDiamond: {
+    width: 15,
+    height: 15,
+    borderWidth: 2,
+    borderColor: "#00C8FF",
+    transform: [{ rotate: "45deg" }],
+    marginBottom: 20,
+    shadowColor: "#00C8FF",
+    shadowOpacity: 0.8,
+    shadowRadius: 8,
+  },
+
+  footerCopyright: {
+    color: "#D6E5FF",
+    fontSize: 12,
+    textAlign: "center",
+  },
+
+  footerCaption: {
+    color: "#6F9CD8",
+    fontSize: 9,
+    fontWeight: "800",
+    letterSpacing: 1.4,
+    textAlign: "center",
+    marginTop: 12,
   },
 });

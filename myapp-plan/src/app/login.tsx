@@ -1,5 +1,7 @@
 import { loginUser } from "@/services/authApi";
+import "@/services/chessAds";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import {disconnectChessSocket} from "@/services/chessSocket";
 import { useRef, useState } from "react";
 
 import {
@@ -194,41 +196,27 @@ export default function LoginScreen() {
       }
 
       // =====================================================
-      // SAVE TOKEN
+      // RESET OLD SOCKET AND SAVE THE NEW TOKEN
       // =====================================================
 
-      await AsyncStorage.setItem(
-        "token",
-        result.token
-      );
+        await disconnectChessSocket();
 
-      // =====================================================
-      // SAVE USER
-      // =====================================================
+        // Always overwrite the old token with the fresh login token.
+        await AsyncStorage.setItem("token", result.token);
 
-      if (result.user) {
+        if (result.user) {
+          await AsyncStorage.setItem(
+            "user",
+            JSON.stringify(result.user)
+          );
+        }
+
         await AsyncStorage.setItem(
-          "user",
-          JSON.stringify(
-            result.user
-          )
+          "rememberMe",
+          rememberMe ? "true" : "false"
         );
-      }
 
-      // =====================================================
-      // REMEMBER ME
-      // =====================================================
-
-      await AsyncStorage.setItem(
-        "rememberMe",
-        rememberMe
-          ? "true"
-          : "false"
-      );
-
-      console.log(
-        "TOKEN SAVED"
-      );
+        console.log("✅ Fresh login token saved");
 
       // =====================================================
       // SUCCESS

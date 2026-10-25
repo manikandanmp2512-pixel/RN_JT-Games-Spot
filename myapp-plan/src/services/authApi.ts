@@ -1,211 +1,146 @@
+import { getAuthToken } from "@/utils/authStorage";
 import axios from "axios";
 
-/*
- * This MUST be reachable from the Android device.
- *
- * Backend:
- * http://192.168.31.214:5000
- */
-const API_URL = "http://192.168.31.214:5000";
+export const API_ROOT = "http://192.168.31.214:5000";
+// export const API_ROOT = "http://172.27.170.226:5000";
 
-// const API_URL = "https://jaytech-backend.onrender.com";
+// For Render, use:
+// export const API_ROOT = "https://jaytech-backend-4.onrender.com";
 
-const authApi =
-  axios.create({
-    baseURL:
-      `${API_URL}/api/auth`,
+export const API_URL = `${API_ROOT}/api`;
 
-    timeout: 15000,
+const api = axios.create({
+  baseURL: API_URL,
+  timeout: 30000,
+});
 
-    headers: {
-      "Content-Type":
-        "application/json",
+// ============================================================
+// AUTH TOKEN
+// ============================================================
 
-      Accept:
-        "application/json",
-    },
-  });
+api.interceptors.request.use(
+  async (config) => {
+    const token = await getAuthToken();
 
-/* =========================================================
-   REGISTER
-========================================================= */
-
-export const registerUser =
-  async (
-    payload: {
-      fname: string;
-      lname: string;
-      email: string;
-      mobilenumber: string;
-      countryCode?: string;
-      password: string;
-      confirmPassword: string;
+    if (token) {
+      config.headers = config.headers || {};
+      config.headers.Authorization = `Bearer ${token}`;
     }
-  ) => {
-    try {
-      const { data } =
-        await authApi.post(
-          "/register",
-          payload
-        );
 
-      return data;
-    } catch (e: any) {
-      return {
-        success: false,
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
 
-        message:
-          e?.response?.data
-            ?.message ||
-          "Registration failed.",
-      };
+// ============================================================
+// REGISTER
+// ============================================================
+
+export const registerUser = async (data: {
+  fname: string;
+  lname: string;
+  email: string;
+  countryCode: string;
+  mobilenumber: string;
+  password: string;
+  confirmPassword: string;
+}) => {
+  const response = await api.post(
+    "/auth/register",
+    data
+  );
+
+  return response.data;
+};
+
+// ============================================================
+// VERIFY REGISTER OTPs
+// ============================================================
+
+export const verifyRegisterOtp = async (data: {
+  email: string;
+  emailOtp: string;
+  mobileOtp: string;
+}) => {
+  const response = await api.post(
+    "/auth/verify-register-otp",
+    data
+  );
+
+  return response.data;
+};
+
+// ============================================================
+// LOGIN
+// ============================================================
+
+export const loginUser = async (data: {
+  email: string;
+  password: string;
+}) => {
+  const response = await api.post(
+    "/auth/login",
+    data
+  );
+
+  return response.data;
+};
+
+// ============================================================
+// FORGOT PASSWORD
+// ============================================================
+
+export const sendForgotOtp = async (
+  email: string
+) => {
+  const response = await api.post(
+    "/auth/forgot-password",
+    {
+      email,
     }
-  };
+  );
 
-/* =========================================================
-   REGISTER OTP
-========================================================= */
+  return response.data;
+};
 
-export const verifyRegisterOtp =
-  async (
-    payload: {
-      email: string;
-      otp: string;
+// ============================================================
+// VERIFY FORGOT OTP
+// ============================================================
+
+export const verifyForgotOtp = async (
+  email: string,
+  otp: string
+) => {
+  const response = await api.post(
+    "/auth/verify-forgot-otp",
+    {
+      email,
+      otp,
     }
-  ) => {
-    try {
-      const { data } =
-        await authApi.post(
-          "/verify-register-otp",
-          payload
-        );
+  );
 
-      return data;
-    } catch (e: any) {
-      return {
-        success: false,
+  return response.data;
+};
 
-        message:
-          e?.response?.data
-            ?.message ||
-          "OTP verification failed.",
-      };
+// ============================================================
+// RESET PASSWORD
+// ============================================================
+
+export const resetPassword = async (
+  email: string,
+  password: string
+) => {
+  const response = await api.post(
+    "/auth/reset-password",
+    {
+      email,
+      password,
     }
-  };
+  );
 
-/* =========================================================
-   LOGIN
-========================================================= */
+  return response.data;
+};
 
-export const loginUser =
-  async (
-    payload: {
-      email: string;
-      password: string;
-    }
-  ) => {
-    try {
-      const { data } =
-        await authApi.post(
-          "/login",
-          payload
-        );
-
-      return data;
-    } catch (e: any) {
-      return {
-        success: false,
-
-        message:
-          e?.response?.data
-            ?.message ||
-          "Login failed.",
-      };
-    }
-  };
-
-/* =========================================================
-   FORGOT PASSWORD
-========================================================= */
-
-export const sendForgotPasswordOtp =
-  async (
-    email: string
-  ) => {
-    try {
-      const { data } =
-        await authApi.post(
-          "/forgot-password/send-otp",
-          {
-            email,
-          }
-        );
-
-      return data;
-    } catch (e: any) {
-      return {
-        success: false,
-
-        message:
-          e?.response?.data
-            ?.message ||
-          "Unable to send OTP.",
-      };
-    }
-  };
-
-export const verifyForgotPasswordOtp =
-  async (
-    email: string,
-    otp: string
-  ) => {
-    try {
-      const { data } =
-        await authApi.post(
-          "/forgot-password/verify-otp",
-          {
-            email,
-            otp,
-          }
-        );
-
-      return data;
-    } catch (e: any) {
-      return {
-        success: false,
-
-        message:
-          e?.response?.data
-            ?.message ||
-          "OTP verification failed.",
-      };
-    }
-  };
-
-export const resetPassword =
-  async (
-    email: string,
-    password: string
-  ) => {
-    try {
-      const { data } =
-        await authApi.post(
-          "/forgot-password/reset",
-          {
-            email,
-            password,
-          }
-        );
-
-      return data;
-    } catch (e: any) {
-      return {
-        success: false,
-
-        message:
-          e?.response?.data
-            ?.message ||
-          "Password reset failed.",
-      };
-    }
-  };
+export default api;

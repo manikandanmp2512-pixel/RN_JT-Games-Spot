@@ -1,12 +1,6 @@
-import {
-    StyleSheet,
-    Text,
-    View,
-} from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 
-import Toast, {
-    BaseToastProps,
-} from "react-native-toast-message";
+import Toast, { BaseToastProps } from "react-native-toast-message";
 
 type ToastType = "success" | "error" | "info";
 
@@ -14,9 +8,7 @@ const ToastContent = ({
   text1,
   text2,
   type,
-}: BaseToastProps & {
-  type: ToastType;
-}) => {
+}: BaseToastProps & { type: ToastType }) => {
   const config = {
     success: {
       icon: "✓",

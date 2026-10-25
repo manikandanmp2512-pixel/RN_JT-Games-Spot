@@ -1,24 +1,12 @@
 import { useRef, useState } from "react";
 
-import {
-  KeyboardAvoidingView,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
 import { router } from "expo-router";
 
 import { registerUser } from "@/services/authApi";
 
-import {
-  showError,
-  showSuccess,
-} from "@/components/JayToast";
+import { showError, showSuccess } from "@/components/JayToast";
 
 // =============================================================
 // REGEX
@@ -29,24 +17,20 @@ const FNAME_REGEX = /^[A-Za-z]{2,30}$/;
 const LNAME_REGEX = /^[A-Z]{1,2}$/;
 
 // Email
-const EMAIL_REGEX =
-  /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
+const EMAIL_REGEX = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
 
 // Country code
-const COUNTRY_CODE_REGEX =
-  /^\+[1-9]\d{0,2}$/;
+const COUNTRY_CODE_REGEX = /^\+[1-9]\d{0,2}$/;
 
 // Indian mobile number
-const MOBILE_REGEX =
-  /^[6-9]\d{9}$/;
+const MOBILE_REGEX = /^[6-9]\d{9}$/;
 
 // Password:
 // minimum 6 characters
 // at least one uppercase
 // at least one lowercase
 // at least one number
-const PASSWORD_REGEX =
-  /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{6,}$/;
+const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{6,}$/;
 
 export default function Register() {
   // ===========================================================
@@ -272,7 +256,88 @@ export default function Register() {
   // SUBMIT
   // ===========================================================
 
+  // const submit = async () => {
+  //   if (!validateForm()) {
+  //     return;
+  //   }
+
+  //   try {
+  //     setLoading(true);
+
+  //     // IMPORTANT:
+  //     // Existing backend payload is preserved.
+
+  //     const result = await registerUser({
+  //       ...form,
+  //       fname: form.fname.trim(),
+  //       lname: form.lname.trim(),
+  //       email: form.email.trim().toLowerCase(),
+  //       countryCode:
+  //         form.countryCode.trim(),
+  //       mobilenumber:
+  //         form.mobilenumber.trim(),
+  //     });
+
+  //     setLoading(false);
+
+  //     // -------------------------------------------------------
+  //     // BACKEND ERROR
+  //     // -------------------------------------------------------
+
+  //     if (!result.success) {
+  //       showError(
+  //         "Registration Failed",
+  //         result.message ||
+  //           "Please try again."
+  //       );
+
+  //       return;
+  //     }
+
+  //     // -------------------------------------------------------
+  //     // OTP SUCCESS
+  //     // -------------------------------------------------------
+
+  //     showSuccess(
+  //       "OTP Sent",
+  //       "Check your email for the registration OTP."
+  //     );
+
+  //     setTimeout(() => {
+  //       router.push({
+  //         pathname:
+  //           "/verify-register-otp",
+
+  //         params: {
+  //           email: form.email
+  //             .trim()
+  //             .toLowerCase(),
+  //         },
+  //       });
+  //     }, 600);
+
+  //   } catch (error: any) {
+  //     setLoading(false);
+
+  //     console.error(
+  //       "REGISTER ERROR:",
+  //       error
+  //     );
+
+  //     showError(
+  //       "Registration Failed",
+  //       error?.response?.data?.message ||
+  //         error?.message ||
+  //         "Something went wrong. Please try again."
+  //     );
+  //   }
+  // };
+
   const submit = async () => {
+    if (loading) {
+      return;
+    }
+
     if (!validateForm()) {
       return;
     }
@@ -280,43 +345,42 @@ export default function Register() {
     try {
       setLoading(true);
 
-      // IMPORTANT:
-      // Existing backend payload is preserved.
-
       const result = await registerUser({
-        ...form,
         fname: form.fname.trim(),
+
         lname: form.lname.trim(),
-        email: form.email.trim().toLowerCase(),
+
+        email:
+          form.email
+            .trim()
+            .toLowerCase(),
+
         countryCode:
           form.countryCode.trim(),
+
         mobilenumber:
           form.mobilenumber.trim(),
+
+        password:
+          form.password,
+
+        confirmPassword:
+          form.confirmPassword,
       });
-
-      setLoading(false);
-
-      // -------------------------------------------------------
-      // BACKEND ERROR
-      // -------------------------------------------------------
 
       if (!result.success) {
         showError(
           "Registration Failed",
           result.message ||
-            "Please try again."
+            "Unable to start registration."
         );
 
         return;
       }
 
-      // -------------------------------------------------------
-      // OTP SUCCESS
-      // -------------------------------------------------------
-
       showSuccess(
         "OTP Sent",
-        "Check your email for the registration OTP."
+        "OTP has been sent to your Gmail and mobile number."
       );
 
       setTimeout(() => {
@@ -325,60 +389,54 @@ export default function Register() {
             "/verify-register-otp",
 
           params: {
-            email: form.email
-              .trim()
-              .toLowerCase(),
+            email:
+              form.email
+                .trim()
+                .toLowerCase(),
           },
         });
       }, 600);
-
     } catch (error: any) {
+        console.error("========== REGISTER DEBUG ==========");
+        console.error("Request URL:", error?.config?.url);
+        console.error("HTTP Status:", error?.response?.status);
+        console.error("Backend Response:", error?.response?.data);
+        console.error("Request Payload:", error?.config?.data);
+        console.error("Error Message:", error?.message);
+        console.error("====================================");
+
+        const backendMessage =
+          error?.response?.data?.message ||
+          error?.response?.data?.error ||
+          error?.response?.data?.details;
+
+        showError(
+          "Registration Failed",
+          typeof backendMessage === "string"
+            ? backendMessage
+            : "The server could not complete registration. Check the backend terminal for the exact error."
+        );
+      } finally {
       setLoading(false);
-
-      console.error(
-        "REGISTER ERROR:",
-        error
-      );
-
-      showError(
-        "Registration Failed",
-        error?.response?.data?.message ||
-          error?.message ||
-          "Something went wrong. Please try again."
-      );
     }
   };
 
-  // ===========================================================
+// ===========================================================
   // UI
   // ===========================================================
 
   return (
     <KeyboardAvoidingView
       style={styles.safe}
-      behavior={
-        Platform.OS === "ios"
-          ? "padding"
-          : "height"
-      }
-      keyboardVerticalOffset={
-        Platform.OS === "ios"
-          ? 10
-          : 0
-      }
-    >
+      behavior={ Platform.OS === "ios" ? "padding" : "height" }
+      keyboardVerticalOffset={ Platform.OS === "ios" ? 10 : 0 } >
       <ScrollView
         ref={scrollRef}
         style={styles.scroll}
-        contentContainerStyle={
-          styles.scrollContent
-        }
+        contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
-        automaticallyAdjustKeyboardInsets={
-          true
-        }
-      >
+        automaticallyAdjustKeyboardInsets={ true } >
         <View style={styles.formContainer}>
 
           {/* =================================================
@@ -397,38 +455,17 @@ export default function Register() {
               FIRST + LAST NAME
           ================================================= */}
 
-          <View
-            style={[
-              styles.row,
-              styles.nameRow,
-            ]}
-          >
+          <View style={[ styles.row, styles.nameRow ]} >
             <TextInput
               value={form.fname}
-              onChangeText={(value) =>
-                update(
-                  "fname",
-                  value
-                    .replace(
-                      /[^A-Za-z]/g,
-                      ""
-                    )
-                    .slice(0, 30)
-                )
-              }
-              onFocus={() =>
-                handleFocus(0)
-              }
+              onChangeText={(value) => update("fname", value.replace(/[^A-Za-z]/g, "").slice(0, 30))}
+              onFocus={() => handleFocus(0)}
               placeholder="First name"
               placeholderTextColor="#7894A2"
               autoCapitalize="words"
               autoCorrect={false}
               returnKeyType="next"
-              style={[
-                styles.input,
-                styles.half,
-              ]}
-            />
+              style={[ styles.input, styles.half]} />
 
             <TextInput
               value={form.lname}

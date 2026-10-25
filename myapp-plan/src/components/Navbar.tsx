@@ -1,5 +1,7 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { router } from "expo-router";
+import { LinearGradient } from "expo-linear-gradient";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useEffect, useState } from "react";
 import {
   Image,
@@ -10,19 +12,17 @@ import {
   View,
 } from "react-native";
 
-import { LinearGradient } from "expo-linear-gradient";
-
 import { useAppTheme } from "@/context/AppThemeContext";
 
 export default function Navbar() {
   const { isDark, toggleTheme } = useAppTheme();
-
   const { width } = useWindowDimensions();
 
   const isMobile = width < 600;
+  const isVerySmall = width < 360;
 
   // =========================================================
-  // LOGGED USER
+  // LOGGED USER — EXISTING LOGIC PRESERVED
   // =========================================================
 
   const [userName, setUserName] = useState("");
@@ -56,61 +56,34 @@ export default function Navbar() {
     return () => clearInterval(interval);
   }, []);
 
-  // =========================================================
-  // LOGGED-IN CHECK
-  // =========================================================
-
   const isLoggedIn = !!userName;
 
   // =========================================================
-  // LOGO / HOME NAVIGATION
+  // LOGO / HOME NAVIGATION — EXISTING LOGIC PRESERVED
   // =========================================================
 
   const handleLogoPress = () => {
-    // =======================================================
-    // IF USER IS LOGGED IN
-    // DON'T GO TO MAIN INDEX
-    // STAY ON USER PAGE
-    // =======================================================
-
     if (isLoggedIn) {
       router.replace("/user");
       return;
     }
 
-    // =======================================================
-    // IF USER IS NOT LOGGED IN
-    // GO TO MAIN HOME
-    // =======================================================
-
     router.replace("/");
   };
 
   // =========================================================
-  // LOGOUT
+  // LOGOUT — EXISTING LOGIC PRESERVED
   // =========================================================
 
   const handleLogout = async () => {
     try {
-      // =======================================================
-      // REMOVE LOGIN DATA
-      // =======================================================
-
       await AsyncStorage.removeItem("token");
       await AsyncStorage.removeItem("user");
       await AsyncStorage.removeItem("rememberMe");
 
-      // =======================================================
-      // CLEAR USERNAME
-      // =======================================================
-
       setUserName("");
 
-      console.log("✅ USER LOGGED OUT");
-
-      // =======================================================
-      // GO TO MAIN INDEX
-      // =======================================================
+      console.log("USER LOGGED OUT");
 
       router.replace("/");
     } catch (error) {
@@ -119,7 +92,7 @@ export default function Navbar() {
   };
 
   // =========================================================
-  // LOGIN
+  // LOGIN — EXISTING LOGIC PRESERVED
   // =========================================================
 
   const handleLogin = () => {
@@ -131,19 +104,18 @@ export default function Navbar() {
   // =========================================================
 
   const colors = {
-    text: isDark ? "#FFFFFF" : "#111827",
-
-    logo: isDark ? "#FFFFFF" : "#111827",
-
-    tech: isDark ? "#C4B5FD" : "#6D28D9",
-
-    themeBackground: isDark
-      ? "rgba(255,255,255,0.14)"
-      : "rgba(255,255,255,0.45)",
+    text: isDark ? "#F8FAFF" : "#FFFFFF",
+    subtitle: isDark ? "#BFD4F8" : "#D7E7FF",
+    iconBackground: isDark
+      ? "rgba(255,255,255,0.10)"
+      : "rgba(255,255,255,0.12)",
+    iconBorder: isDark
+      ? "rgba(173,205,255,0.12)"
+      : "rgba(255,255,255,0.22)",
   };
 
   // =========================================================
-  // SCREEN
+  // NAVBAR UI
   // =========================================================
 
   return (
@@ -151,179 +123,184 @@ export default function Navbar() {
       style={[
         styles.wrapper,
         {
-          paddingHorizontal: isMobile ? 10 : 20,
+          paddingHorizontal: isMobile ? 5 : 18,
         },
       ]}
     >
-      {/* =====================================================
-          NAVBAR BACKGROUND
-      ===================================================== */}
-
+      {/* Gradient outline around the complete navbar */}
       <LinearGradient
-        colors={
-          isDark
-            ? [
-                "#0F172A",
-                "#1E3A8A",
-                "#4C1D95",
-                "#7C3AED",
-              ]
-            : [
-                "#6c8bf4",
-                "#DBEAFE",
-                "#C4B5FD",
-                "#9279f7",
-              ]
-        }
+        colors={["#00CFFF", "#176BFF", "#7548FF", "#24375F"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
-        style={styles.navbar}
+        style={styles.borderGradient}
       >
-        {/* ===================================================
-            LOGO + USER NAME / JAY TECH
-        =================================================== */}
-
-        <Pressable
-          onPress={handleLogoPress}
-          style={({ pressed }) => [
-            styles.logoSection,
+        {/* Dark glass-style navbar background */}
+        <View
+          style={[
+            styles.navbar,
             {
-              opacity: pressed ? 0.65 : 1,
+              backgroundColor: isDark ? "#050D20" : "#101A35",
             },
           ]}
         >
-          {/* LOGO */}
-
-          <Image
-            source={require("@/assets/images/Untitled-1.gif")}
-            resizeMode="contain"
-            style={[
-              styles.logo,
-              {
-                width: isMobile ? 42 : 50,
-                height: isMobile ? 42 : 50,
-              },
+          {/* Subtle background lighting */}
+          <LinearGradient
+            pointerEvents="none"
+            colors={[
+              "rgba(0,184,255,0.10)",
+              "rgba(6,15,37,0.01)",
+              "rgba(109,64,255,0.10)",
             ]}
-          />
-
-          {/* DIVIDER */}
-
-          <View
-            style={[
-              styles.divider,
-              {
-                backgroundColor: isDark
-                  ? "rgba(255,255,255,0.35)"
-                  : "rgba(79,70,229,0.25)",
-              },
-            ]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            // style={StyleSheet.absoluteFillObject}
           />
 
           {/* =================================================
-              LOGGED USER NAME / JAY TECH
+              LEFT SIDE — LOGO AND BRAND
           ================================================= */}
 
-          {userName ? (
-            <Text
-              numberOfLines={1}
-              adjustsFontSizeToFit
-              style={[
-                styles.brandText,
-                {
-                  fontSize: isMobile ? 17 : 22,
-                  color: colors.text,
-                  maxWidth: isMobile ? 125 : 250,
-                },
-              ]}
-            >
-              {userName}
-            </Text>
-          ) : (
-            <Text
-              numberOfLines={1}
-              adjustsFontSizeToFit
-              style={[
-                styles.brandText,
-                {
-                  fontSize: isMobile ? 18 : 23,
-                  color: colors.text,
-                },
-              ]}
-            >
-              <Text style={styles.jayText}>
-                JAY
-              </Text>
+          <Pressable
+            onPress={handleLogoPress}
+            accessibilityRole="button"
+            accessibilityLabel="Go to home"
+            style={({ pressed }) => [
+              styles.logoSection,
+              {
+                opacity: pressed ? 0.75 : 1,
+              },
+            ]}
+          >
+            {/* Existing logo asset */}
+            <View style={styles.logoContainer}>
+              <Image
+                source={require("@/assets/images/Untitled-1.gif")}
+                resizeMode="contain"
+                style={[
+                  styles.logo,
+                  {
+                    width: isVerySmall ? 38 : isMobile ? 44 : 56,
+                    height: isVerySmall ? 38 : isMobile ? 44 : 56,
+                  },
+                ]}
+              />
+            </View>
+
+            {/* Brand text */}
+            <View style={styles.brandContainer}>
+              {isLoggedIn ? (
+                <Text
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  style={[
+                    styles.brandText,
+                    {
+                      fontSize: isMobile ? 15 : 21,
+                      color: colors.text,
+                      maxWidth: isMobile ? 115 : 220,
+                    },
+                  ]}
+                >
+                  {userName}
+                </Text>
+              ) : (
+                <Text
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  style={[
+                    styles.brandText,
+                    {
+                      fontSize: isMobile ? 18 : 25,
+                      color: colors.text,
+                    },
+                  ]}
+                >
+                  <Text style={styles.jayText}>Jay </Text>
+                  <Text style={styles.techText}>Tech</Text>
+                </Text>
+              )}
 
               <Text
+                numberOfLines={1}
                 style={[
-                  styles.techText,
+                  styles.brandSubtitle,
                   {
-                    color: colors.tech,
+                    fontSize: isMobile ? 11 : 15,
+                    color: colors.subtitle,
+                    letterSpacing: isMobile ? 1.2 : 1.8,
                   },
                 ]}
               >
-                {" "}
-                TECH
+                Games Spot
               </Text>
-            </Text>
-          )}
-        </Pressable>
-
-        {/* ===================================================
-            RIGHT SIDE
-        =================================================== */}
-
-        <View style={styles.rightSection}>
-          {/* =================================================
-              THEME BUTTON
-          ================================================= */}
-
-          <Pressable
-            onPress={toggleTheme}
-            style={({ pressed }) => [
-              styles.themeButton]}
-          >
-            <Text style={styles.themeIcon}>
-              {isDark ? "☀️" : "🌙"}
-            </Text>
+            </View>
           </Pressable>
 
           {/* =================================================
-              LOGIN / LOGOUT BUTTON
+              RIGHT SIDE — THEME AND LOGIN / LOGOUT
           ================================================= */}
 
-          <Pressable
-            onPress={
-              isLoggedIn
-                ? handleLogout
-                : handleLogin
-            }
-            style={({ pressed }) => [
-              styles.loginButton,
-              {
-                transform: [
-                  {
-                    scale: pressed ? 0.96 : 1,
-                  },
-                ],
-              },
-            ]}
-          >
-            <Text style={styles.loginIcon}>
-              {isLoggedIn ? "🚪" : "👤"}
-            </Text>
-
-            <Text
-              style={[
-                styles.loginText,
+          <View style={styles.rightSection}>
+            {/* Theme toggle */}
+            <Pressable
+              onPress={toggleTheme}
+              accessibilityRole="button"
+              accessibilityLabel={
+                isDark ? "Switch to light theme" : "Switch to dark theme"
+              }
+              hitSlop={5}
+              style={({ pressed }) => [
+                styles.roundButton,
                 {
-                  fontSize: isMobile ? 12 : 14,
+                  width: isMobile ? 42 : 56,
+                  height: isMobile ? 42 : 56,
+                  borderRadius: isMobile ? 21 : 28,
+                  backgroundColor: colors.iconBackground,
+                  borderColor: colors.iconBorder,
+                  transform: [{ scale: pressed ? 0.92 : 1 }],
                 },
               ]}
             >
-              {isLoggedIn ? "Logout" : "Login"}
-            </Text>
-          </Pressable>
+              <Ionicons
+                name={isDark ? "sunny" : "moon"}
+                size={isMobile ? 20 : 25}
+                color={isDark ? "#FFD166" : "#BBD5FF"}
+              />
+            </Pressable>
+
+            {/* Login / Logout */}
+            <Pressable
+              onPress={isLoggedIn ? handleLogout : handleLogin}
+              accessibilityRole="button"
+              accessibilityLabel={isLoggedIn ? "Logout" : "Login"}
+              hitSlop={5}
+              style={({ pressed }) => [
+                styles.roundButton,
+                {
+                  width: isMobile ? 42 : 56,
+                  height: isMobile ? 42 : 56,
+                  borderRadius: isMobile ? 21 : 28,
+                  backgroundColor: colors.iconBackground,
+                  borderColor: colors.iconBorder,
+                  transform: [{ scale: pressed ? 0.92 : 1 }],
+                },
+              ]}
+            >
+              {isLoggedIn ? (
+                <MaterialCommunityIcons
+                  name="logout"
+                  size={isMobile ? 21 : 25}
+                  color="#FFB8B8"
+                />
+              ) : (
+                <Ionicons
+                  name="person-outline"
+                  size={isMobile ? 23 : 28}
+                  color="#F5F7FF"
+                />
+              )}
+            </Pressable>
+          </View>
         </View>
       </LinearGradient>
     </View>
@@ -331,166 +308,112 @@ export default function Navbar() {
 }
 
 // =============================================================
-// STYLES
+// STYLES — GAMING GLASS / NEON DESIGN
 // =============================================================
 
 const styles = StyleSheet.create({
   wrapper: {
-    marginTop: 25,
-
     width: "100%",
+    paddingTop: 10,
+    paddingBottom: 9,
+  },
 
-    height: 92,
-
-    justifyContent: "center",
+  borderGradient: {
+    width: "100%",
+    padding: 1.5,
+    borderRadius: 36,
+    shadowColor: "#087BFF",
+    shadowOffset: {
+      width: 0,
+      height: 5,
+    },
+    shadowOpacity: 0.24,
+    shadowRadius: 15,
+    elevation: 8,
   },
 
   navbar: {
+    minHeight: 76,
     width: "100%",
-
-    height: 68,
-
-    borderRadius: 22,
-
+    borderRadius: 34,
     flexDirection: "row",
-
     alignItems: "center",
-
     justifyContent: "space-between",
-
-    paddingHorizontal: 10,
-
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     overflow: "hidden",
-
-    shadowColor: "#6366F1",
-
-    shadowOffset: {
-      width: 0,
-
-      height: 8,
-    },
-
-    shadowRadius: 18,
-
-    shadowOpacity: 0.35,
-
-    elevation: 10,
   },
 
   logoSection: {
-    flexDirection: "row",
-
-    alignItems: "center",
-
-    flexShrink: 1,
-
+    flex: 1,
     minWidth: 0,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingRight: 5,
+  },
+
+  logoContainer: {
+    width: 54,
+    height: 56,
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
   },
 
   logo: {
-    borderRadius: 12,
+    borderRadius: 14,
   },
 
-  divider: {
-    width: 1,
-
-    height: 34,
-
-    marginHorizontal: 8,
-
-    opacity: 0.8,
+  brandContainer: {
+    flex: 1,
+    minWidth: 0,
+    justifyContent: "center",
+    paddingLeft: 7,
   },
 
   brandText: {
     fontWeight: "900",
-
-    letterSpacing: 1.2,
-
+    letterSpacing: -0.4,
     includeFontPadding: false,
-
     flexShrink: 1,
   },
 
   jayText: {
+    color: "#F8FAFF",
     fontWeight: "900",
-
-    letterSpacing: 1.5,
   },
 
   techText: {
+    color: "#17CFFF",
     fontWeight: "900",
+  },
 
-    letterSpacing: 2,
+  brandSubtitle: {
+    fontWeight: "600",
+    marginTop: 3,
+    includeFontPadding: false,
   },
 
   rightSection: {
     flexDirection: "row",
-
     alignItems: "center",
-
-    gap: 8,
-
+    justifyContent: "flex-end",
+    gap: 10,
     flexShrink: 0,
+    paddingLeft: 4,
   },
 
-  themeButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 14,
+  roundButton: {
     alignItems: "center",
     justifyContent: "center",
-    elevation: 5,
-  },
-
-  themeIcon: {
-    fontSize: 20,
-  },
-
-  loginButton: {
-    minWidth: 60,
-
-    height: 42,
-
-    paddingHorizontal: 12,
-
-    borderRadius: 14,
-
-    backgroundColor: "#020789",
-
-    flexDirection: "row",
-
-    alignItems: "center",
-
-    justifyContent: "center",
-
-    gap: 5,
-
-    shadowColor: "#8B5CF6",
-
+    borderWidth: 1,
+    shadowColor: "#000000",
     shadowOffset: {
       width: 0,
-
-      height: 4,
+      height: 3,
     },
-
-    shadowRadius: 10,
-
-    shadowOpacity: 0.5,
-
-    elevation: 7,
-  },
-
-  loginIcon: {
-    color: "#ede6e6",
-
-    fontSize: 15,
-  },
-
-  loginText: {
-    color: "#FFFFFF",
-
-    fontWeight: "800",
-
-    letterSpacing: 0.5,
+    shadowOpacity: 0.15,
+    shadowRadius: 5,
+    elevation: 4,
   },
 });
