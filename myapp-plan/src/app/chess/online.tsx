@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Chess, Square } from "chess.js";
 import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
@@ -16,21 +17,28 @@ import {
   View,
 } from "react-native";
 
-  import ChessGameResultModal from "@/components/chess/ChessGameResultModal";
-import AdBanner from "@/components/AdBanner";
+import ChessGameResultModal from "@/components/chess/ChessGameResultModal";
 import { calculateStatsFromGame } from "@/utils/chessGameStats";
 
-  import ChessBoard from "@/components/chess/ChessBoard";
+
+import ChessRewardModePicker from "@/components/chess/ChessRewardModePicker";
+
+import { ChessRewardMode, ChessRewardModeId } from "@/types/chessRewards";
+import type { ChessPieceSet } from "@/components/chess/ChessBoard";
+import { CHESS_PIECE_SET_STORAGE_KEY } from "@/components/chess/ChessBoard";
+
+import ChessBoard, {
+  type BoardImageTheme,
+} from "@/components/chess/ChessBoard";
 import ChessGameSettings, {
   useChessSettings,
 } from "@/components/chess/ChessGameSettings";
 import { playChessMoveSound } from "@/components/chess/chessSound";
-
-  import {
-  ChessBoardTheme,
+// import { showGameCompletionAd } from "@/services/chessAds";
+import {
   ChessColor,
   ClockState,
-  GameModeId,
+  GameModeId
 } from "@/types/chess";
 
   import {
@@ -82,19 +90,83 @@ import { playChessMoveSound } from "@/components/chess/chessSound";
     black: CapturedCounts;
   };
 
-  const PIECE_IMAGES: Record<string, any> = {
-    white_p: require("@/assets/chess-pieces/white_p.png"),
-    white_n: require("@/assets/chess-pieces/white_n.png"),
-    white_b: require("@/assets/chess-pieces/white_b.png"),
-    white_r: require("@/assets/chess-pieces/white_r.png"),
-    white_q: require("@/assets/chess-pieces/white_q.png"),
-
-    black_p: require("@/assets/chess-pieces/black_p.png"),
-    black_n: require("@/assets/chess-pieces/black_n.png"),
-    black_b: require("@/assets/chess-pieces/black_b.png"),
-    black_r: require("@/assets/chess-pieces/black_r.png"),
-    black_q: require("@/assets/chess-pieces/black_q.png"),
+  const PIECE_SETS: Record<ChessPieceSet, Record<string, any>> = {
+    set_1: {
+      white_p: require("@/assets/chess-pieces/white_p.png"),
+      white_n: require("@/assets/chess-pieces/white_n.png"),
+      white_b: require("@/assets/chess-pieces/white_b.png"),
+      white_r: require("@/assets/chess-pieces/white_r.png"),
+      white_q: require("@/assets/chess-pieces/white_q.png"),
+      white_k: require("@/assets/chess-pieces/white_k.png"),
+      black_p: require("@/assets/chess-pieces/black_p.png"),
+      black_n: require("@/assets/chess-pieces/black_n.png"),
+      black_b: require("@/assets/chess-pieces/black_b.png"),
+      black_r: require("@/assets/chess-pieces/black_r.png"),
+      black_q: require("@/assets/chess-pieces/black_q.png"),
+      black_k: require("@/assets/chess-pieces/black_k.png"),
+    },
+    set_2: {
+      white_p: require("@/assets/chess-pieces/set_2/white_p.png"),
+      white_n: require("@/assets/chess-pieces/set_2/white_n.png"),
+      white_b: require("@/assets/chess-pieces/set_2/white_b.png"),
+      white_r: require("@/assets/chess-pieces/set_2/white_r.png"),
+      white_q: require("@/assets/chess-pieces/set_2/white_q.png"),
+      white_k: require("@/assets/chess-pieces/set_2/white_k.png"),
+      black_p: require("@/assets/chess-pieces/set_2/black_p.png"),
+      black_n: require("@/assets/chess-pieces/set_2/black_n.png"),
+      black_b: require("@/assets/chess-pieces/set_2/black_b.png"),
+      black_r: require("@/assets/chess-pieces/set_2/black_r.png"),
+      black_q: require("@/assets/chess-pieces/set_2/black_q.png"),
+      black_k: require("@/assets/chess-pieces/set_2/black_k.png"),
+    },
+    set_3: {
+      white_p: require("@/assets/chess-pieces/set_3/white_p.png"),
+      white_n: require("@/assets/chess-pieces/set_3/white_n.png"),
+      white_b: require("@/assets/chess-pieces/set_3/white_b.png"),
+      white_r: require("@/assets/chess-pieces/set_3/white_r.png"),
+      white_q: require("@/assets/chess-pieces/set_3/white_q.png"),
+      white_k: require("@/assets/chess-pieces/set_3/white_k.png"),
+      black_p: require("@/assets/chess-pieces/set_3/black_p.png"),
+      black_n: require("@/assets/chess-pieces/set_3/black_n.png"),
+      black_b: require("@/assets/chess-pieces/set_3/black_b.png"),
+      black_r: require("@/assets/chess-pieces/set_3/black_r.png"),
+      black_q: require("@/assets/chess-pieces/set_3/black_q.png"),
+      black_k: require("@/assets/chess-pieces/set_3/black_k.png"),
+    },
+    set_4: {
+      white_p: require("@/assets/chess-pieces/set_4/white_p.png"),
+      white_n: require("@/assets/chess-pieces/set_4/white_n.png"),
+      white_b: require("@/assets/chess-pieces/set_4/white_b.png"),
+      white_r: require("@/assets/chess-pieces/set_4/white_r.png"),
+      white_q: require("@/assets/chess-pieces/set_4/white_q.png"),
+      white_k: require("@/assets/chess-pieces/set_4/white_k.png"),
+      black_p: require("@/assets/chess-pieces/set_4/black_p.png"),
+      black_n: require("@/assets/chess-pieces/set_4/black_n.png"),
+      black_b: require("@/assets/chess-pieces/set_4/black_b.png"),
+      black_r: require("@/assets/chess-pieces/set_4/black_r.png"),
+      black_q: require("@/assets/chess-pieces/set_4/black_q.png"),
+      black_k: require("@/assets/chess-pieces/set_4/black_k.png"),
+    },
   };
+
+  const BOARD_THEME_STORAGE_KEY = "@jaytech/online-chess-board-theme";
+
+  const BOARD_THEMES: {
+    id: BoardImageTheme;
+    label: string;
+    image: number;
+  }[] = [
+    { id: "images_1", label: "Classic", image: require("@/assets/chess/images_1.png") },
+    { id: "images_2", label: "Theme 2", image: require("@/assets/chess/images_2.png") },
+    { id: "images_3", label: "Theme 3", image: require("@/assets/chess/images_3.png") },
+    { id: "images_4", label: "Theme 4", image: require("@/assets/chess/images_4.png") },
+    { id: "images_5", label: "Theme 5", image: require("@/assets/chess/images_5.png") },
+    { id: "images_6", label: "Theme 6", image: require("@/assets/chess/images_6.png") },
+    { id: "images_7", label: "Theme 7", image: require("@/assets/chess/images_7.png") },
+    { id: "images_8", label: "Theme 8", image: require("@/assets/chess/images_8.png") },
+    { id: "images_9", label: "Theme 9", image: require("@/assets/chess/images_9.png") },
+    { id: "images_10", label: "Theme 10", image: require("@/assets/chess/images_10.png") },
+  ];
 
   const createEmptyCapturedCounts =
     (): CapturedCounts => ({
@@ -315,14 +387,12 @@ import { playChessMoveSound } from "@/components/chess/chessSound";
     title,
     capturedPieces,
     capturedPieceColor,
+    pieceImages,
   }: {
     title: string;
-
     capturedPieces: CapturedCounts;
-
-    capturedPieceColor:
-      | "white"
-      | "black";
+    capturedPieceColor: "white" | "black";
+    pieceImages: Record<string, any>;
   }) {
     const pieceTypes: CapturedPieceType[] =
       [
@@ -397,10 +467,7 @@ import { playChessMoveSound } from "@/components/chess/chessSound";
                 return null;
               }
 
-              const asset =
-                PIECE_IMAGES[
-                  `${capturedPieceColor}_${type}`
-                ];
+              const asset = pieceImages[`${capturedPieceColor}_${type}`];
 
               return (
                 <View
@@ -502,6 +569,14 @@ import { playChessMoveSound } from "@/components/chess/chessSound";
 
     const [resultModalVisible, setResultModalVisible] = useState(false);
 
+    const [isSearching, setIsSearching] = useState(false);
+    
+    const [selectedRewardMode, setSelectedRewardMode] = useState<ChessRewardModeId>("free");
+
+    const [selectedModeConfig, setSelectedModeConfig] = useState<ChessRewardMode | null>(null);
+
+
+
     type RatingChangeInfo = {
       previousRating: number;
       change: number;
@@ -539,7 +614,48 @@ import { playChessMoveSound } from "@/components/chess/chessSound";
     const params =
       useLocalSearchParams<{
         mode?: GameModeId;
+        pieceSet?: string;
       }>();
+
+    const isValidPieceSet = (
+      value: unknown
+    ): value is ChessPieceSet =>
+      value === "set_1" ||
+      value === "set_2" ||
+      value === "set_3" ||
+      value === "set_4";
+
+    const [pieceSet, setPieceSet] = useState<ChessPieceSet>(
+      isValidPieceSet(params.pieceSet) ? params.pieceSet : "set_1"
+    );
+
+    useEffect(() => {
+      let active = true;
+
+      if (isValidPieceSet(params.pieceSet)) {
+        setPieceSet(params.pieceSet);
+        return () => {
+          active = false;
+        };
+      }
+
+      AsyncStorage.getItem(CHESS_PIECE_SET_STORAGE_KEY)
+        .then((savedSet) => {
+          if (active && isValidPieceSet(savedSet)) {
+            setPieceSet(savedSet);
+          }
+        })
+        .catch((error) => {
+          console.warn("Unable to load selected chess piece style:", error);
+        });
+
+      return () => {
+        active = false;
+      };
+    }, [params.pieceSet]);
+
+    const selectedPieceImages =
+      PIECE_SETS[pieceSet] ?? PIECE_SETS.set_1;
 
     const selectedMode: GameModeId =
       params.mode &&
@@ -600,7 +716,9 @@ import { playChessMoveSound } from "@/components/chess/chessSound";
     /* ------------------------------------------------------------------------ */
 
     const [searching, setSearching] =
-      useState(true);
+      useState(false);
+
+    const [searchSeconds, setSearchSeconds] = useState(1);
 
     const [started, setStarted] =
       useState(false);
@@ -647,10 +765,7 @@ import { playChessMoveSound } from "@/components/chess/chessSound";
     /* UI                                                                       */
     /* ------------------------------------------------------------------------ */
 
-    const [boardTheme, setBoardTheme] =
-      useState<ChessBoardTheme>(
-        "wood"
-      );
+    const [boardTheme, setBoardTheme] = useState<BoardImageTheme>("images_1");
 
     const [
       settingsVisible,
@@ -672,6 +787,10 @@ import { playChessMoveSound } from "@/components/chess/chessSound";
 
     const [chatText, setChatText] =
       useState("");
+
+    // Number of incoming chat messages not yet viewed by the player.
+    const [unreadChatCount, setUnreadChatCount] =
+      useState(0);
 
     const [messages, setMessages] =
       useState<ChessChatMessage[]>(
@@ -749,6 +868,11 @@ import { playChessMoveSound } from "@/components/chess/chessSound";
 
     const mountedRef =
       useRef(true);
+
+    // Refs let socket callbacks read the latest chat visibility without
+    // recreating the socket listeners.
+    const chatVisibleRef = useRef(false);
+    const seenChatIdsRef = useRef<Set<string>>(new Set());
 
     const navigationTimerRef =
       useRef<
@@ -850,36 +974,49 @@ import { playChessMoveSound } from "@/components/chess/chessSound";
       */
       /* ====================================================================== */
 
-      const nextPlayer =
-        data.player ||
-        playerRef.current ||
-        null;
+      const rawPlayer = data.player || playerRef.current || null;
+      const nextPlayer = rawPlayer
+        ? {
+            ...rawPlayer,
+            id: String(rawPlayer.id ?? (rawPlayer as any)._id ?? ""),
+            name: String(rawPlayer.name || (rawPlayer as any).displayName || [
+              (rawPlayer as any).fname ||
+              (rawPlayer as any).firstName,
+              (rawPlayer as any).lname ||
+              (rawPlayer as any).lastName,
+            ].filter(Boolean).join(" ") || "You"
+            ).trim(),
+          }
+        : null;
 
       if (nextPlayer) {
-        playerRef.current =
-          nextPlayer;
-
-        setPlayer(
-          nextPlayer
-        );
+        playerRef.current = nextPlayer;
+        setPlayer(nextPlayer);
       }
 
       /* ====================================================================== */
       /* OPPONENT                                                                 */
       /* ====================================================================== */
 
-      const nextOpponent =
-        data.opponent ||
-        opponentRef.current ||
-        null;
+      const rawOpponent = data.opponent || opponentRef.current || null;
+      const nextOpponent = rawOpponent
+        ? {
+            ...rawOpponent,
+            id: String(rawOpponent.id ?? (rawOpponent as any)._id ?? ""),
+            name: String(
+              rawOpponent.name || (rawOpponent as any).displayName || [
+                (rawOpponent as any).fname || 
+                (rawOpponent as any).firstName,
+                (rawOpponent as any).lname ||
+                (rawOpponent as any).lastName
+              ].filter(Boolean).join(" ") || "Opponent"
+            ).trim(),
+          }
+        : null;
 
       if (nextOpponent) {
-        opponentRef.current =
-          nextOpponent;
-
-        setOpponent(
-          nextOpponent
-        );
+        opponentRef.current = nextOpponent;
+        setOpponent(nextOpponent);
       }
 
       /* ====================================================================== */
@@ -948,9 +1085,8 @@ import { playChessMoveSound } from "@/components/chess/chessSound";
         null
       );
 
-      setSearching(
-        false
-      );
+      setSearching(false);
+      setSearchSeconds(1);
 
       setStarted(
         true
@@ -973,6 +1109,8 @@ import { playChessMoveSound } from "@/components/chess/chessSound";
       );
 
       setMessages([]);
+      setUnreadChatCount(0);
+      seenChatIdsRef.current.clear();
 
       /* ====================================================================== */
       /* SAFE LOGGING                                                             */
@@ -1277,6 +1415,7 @@ import { playChessMoveSound } from "@/components/chess/chessSound";
             const onMatchFound = (
                 data: any
               ) => {
+                setIsSearching(false);
                 console.log(
                   "🎯 MATCH FOUND:",
                   JSON.stringify(
@@ -1473,29 +1612,25 @@ import { playChessMoveSound } from "@/components/chess/chessSound";
                   return;
                 }
 
-                setMessages(
-                  (previous) => {
-                    const exists =
-                      previous.some(
-                        (
-                          item
-                        ) =>
-                          item.id ===
-                          message.id
-                      );
+                // Ignore duplicate socket deliveries so the badge counts
+                // each incoming message only once.
+                if (seenChatIdsRef.current.has(message.id)) {
+                  return;
+                }
+                seenChatIdsRef.current.add(message.id);
 
-                    if (
-                      exists
-                    ) {
-                      return previous;
-                    }
+                setMessages((previous) => [
+                  ...previous,
+                  message,
+                ]);
 
-                    return [
-                      ...previous,
-                      message,
-                    ];
-                  }
-                );
+                // Count only opponent messages while the chat window is closed.
+                if (
+                  message.from !== playerRef.current?.id &&
+                  !chatVisibleRef.current
+                ) {
+                  setUnreadChatCount((count) => count + 1);
+                }
               };
 
             /* -------------------------------------------------------------- */
@@ -1606,14 +1741,26 @@ import { playChessMoveSound } from "@/components/chess/chessSound";
                   data
                 );
 
-                setMovePending(
-                  false
-                );
+                setMovePending(false);
+                setErrorMessage(data?.message || "Something went wrong.");
 
-                setErrorMessage(
-                  data?.message ||
-                    "Something went wrong."
-                );
+                // A missing game ID means the server no longer has this match
+                // (commonly after a backend restart or a stale screen state).
+                // Clear local match references so no more moves are sent to it.
+                if (data?.code === "GAME_NOT_FOUND" || data?.code === "GAME_NOT_ACTIVE") {
+                  gameIdRef.current = null;
+                  colorRef.current = null;
+                  gameRef.current = new Chess();
+                  playerRef.current = null;
+                  opponentRef.current = null;
+                  setGameId(null);
+                  setColor(null);
+                  setPlayer(null);
+                  setOpponent(null);
+                  setStarted(false);
+                  setSearching(false);
+                  setGameFinished(true);
+                }
               };
 
             /* -------------------------------------------------------------- */
@@ -1680,12 +1827,8 @@ import { playChessMoveSound } from "@/components/chess/chessSound";
               onSocketError
             );
 
-            /*
-            * Start matchmaking.
-            */
-            findRandomOpponent(
-              selectedMode
-            );
+            // Matchmaking starts only after the player reviews the reward
+            // sharing details and taps FIND OPPONENT.
           } catch (
             error: any
           ) {
@@ -1758,6 +1901,31 @@ import { playChessMoveSound } from "@/components/chess/chessSound";
     }, [
       selectedMode,
     ]);
+
+    /* ------------------------------------------------------------------------ */
+    /* Matchmaking timeout: close search after 30 seconds if no game starts     */
+    /* ------------------------------------------------------------------------ */
+    useEffect(() => {
+      if (!searching || started || gameFinished) return;
+
+      const startedAt = Date.now();
+      setSearchSeconds(0);
+      const timer = setInterval(() => {
+        const elapsed = Math.floor((Date.now() - startedAt) / 1000);
+        if (elapsed >= 30) {
+          clearInterval(timer);
+          cancelMatchmaking();
+          setSearching(false);
+          setIsSearching(false);
+          setSearchSeconds(30);
+          router.replace("/chess");
+          return;
+        }
+        setSearchSeconds(elapsed);
+      }, 250);
+
+      return () => clearInterval(timer);
+    }, [searching, started, gameFinished]);
 
     /* ------------------------------------------------------------------------ */
     /* Local Clock                                                              */
@@ -1930,12 +2098,62 @@ import { playChessMoveSound } from "@/components/chess/chessSound";
       };
 
     /* ------------------------------------------------------------------------ */
+    /* Start Search                                                             */
+    /* ------------------------------------------------------------------------ */
+
+    const handleFindOpponent = async () => {
+      const reward = selectedModeConfig;
+
+      if (!reward) {
+        Alert.alert(
+          "Select reward mode",
+          "Please select a reward-sharing mode before finding an opponent."
+        );
+        return;
+      }
+
+      // Open the 30-second search UI immediately on button press.
+      // Do not wait for the socket connection before changing the screen.
+      setErrorMessage("");
+      setSearchSeconds(0);
+      setStarted(false);
+      setGameFinished(false);
+      setGameId(null);
+      setSearching(true);
+      setIsSearching(true);
+
+      try {
+        const connectedSocket = await connectChessSocket();
+
+        if (!connectedSocket.connected) {
+          throw new Error("Chess server is not connected. Please try again.");
+        }
+
+        // The search UI is already visible; now send the matchmaking request.
+        findRandomOpponent(selectedMode, selectedRewardMode);
+      } catch (error: any) {
+        console.error("Find opponent failed:", error);
+        cancelMatchmaking();
+        setSearching(false);
+        setIsSearching(false);
+        setErrorMessage(
+          error?.message || "Unable to connect to chess server. Please try again."
+        );
+        Alert.alert(
+          "Unable to find opponent",
+          error?.message || "Could not connect to the chess server. Please try again."
+        );
+      }
+    };
+
+    /* ------------------------------------------------------------------------ */
     /* Cancel Search                                                            */
     /* ------------------------------------------------------------------------ */
 
     const handleCancelSearch =
       () => {
         setSearching(false);
+        setIsSearching(false);
 
         setStarted(false);
 
@@ -2246,6 +2464,17 @@ import { playChessMoveSound } from "@/components/chess/chessSound";
     /* Chat                                                                     */
     /* ------------------------------------------------------------------------ */
 
+    const openChat = () => {
+      chatVisibleRef.current = true;
+      setUnreadChatCount(0);
+      setChatVisible(true);
+    };
+
+    const closeChat = () => {
+      chatVisibleRef.current = false;
+      setChatVisible(false);
+    };
+
     const handleSendChat =
       () => {
         const message =
@@ -2329,6 +2558,91 @@ import { playChessMoveSound } from "@/components/chess/chessSound";
       };
 
     /* ------------------------------------------------------------------------ */
+    /* Reward Selection / Find Opponent Lobby                                  */
+    /* ------------------------------------------------------------------------ */
+
+    if (!searching && !started && !gameId) {
+      return (
+        <SafeAreaView style={styles.container}>
+          <ScrollView contentContainerStyle={{ padding: 22, paddingBottom: 40 }}>
+            <Pressable
+              style={{ width: 44, height: 44, borderRadius: 22, alignItems: "center", justifyContent: "center", backgroundColor: "#142237", marginBottom: 18 }}
+              onPress={() => router.replace("/chess")}
+            >
+              <Ionicons name="arrow-back" size={25} color="#ffffff" />
+            </Pressable>
+
+            <Text style={{ color: "#ffffff", fontSize: 27, fontWeight: "900", marginBottom: 8 }}>
+              Online Chess
+            </Text>
+            <Text style={{ color: "#a9bdcc", fontSize: 14, lineHeight: 21, marginBottom: 20 }}>
+              Choose your virtual coin reward-sharing mode. Review the entry fee and reward details, then find an opponent.
+            </Text>
+
+            <View style={{ backgroundColor: "#102438", borderColor: "#244f65", borderWidth: 1, borderRadius: 16, padding: 14, marginBottom: 16 }}>
+              <Text style={{ color: "#ffb547", fontSize: 15, fontWeight: "800", marginBottom: 8 }}>
+                TIME CONTROL
+              </Text>
+              <Text style={{ color: "#ffffff", fontSize: 18, fontWeight: "800" }}>
+                {MODE_NAMES[selectedMode]}
+              </Text>
+            </View>
+
+            <ChessRewardModePicker
+              selectedMode={selectedRewardMode}
+              onSelectMode={(mode) => {
+                setSelectedRewardMode(mode.id);
+                setSelectedModeConfig(mode);
+                setErrorMessage("");
+              }}
+              disabled={isSearching}
+            />
+
+            {selectedModeConfig ? (
+              <View style={{ backgroundColor: "#102438", borderColor: "#f4a000", borderWidth: 1, borderRadius: 16, padding: 16, marginTop: 16 }}>
+                <Text style={{ color: "#ffb547", fontSize: 17, fontWeight: "900", marginBottom: 12 }}>
+                  {selectedModeConfig.name} — Reward sharing
+                </Text>
+                {[
+                  ["Entry fee per player", `${selectedModeConfig.entryCoins} virtual coins`],
+                  ["Winner receives", `${selectedModeConfig.winnerCoins} virtual coins`],
+                  ["Loser receives", `${selectedModeConfig.loserCoins} virtual coins`],
+                  ["Platform share", `${selectedModeConfig.platformCoins} virtual coins`],
+                ].map(([label, value]) => (
+                  <View key={label} style={{ flexDirection: "row", justifyContent: "space-between", paddingVertical: 7, borderBottomWidth: 1, borderBottomColor: "#24465b" }}>
+                    <Text style={{ color: "#d5e2eb", flex: 1, marginRight: 10 }}>{label}</Text>
+                    <Text style={{ color: "#ffffff", fontWeight: "800", textAlign: "right" }}>{value}</Text>
+                  </View>
+                ))}
+                <Text style={{ color: "#a9bdcc", fontSize: 12, lineHeight: 18, marginTop: 12 }}>
+                  These are virtual coins only, not real money. You will be matched with a player using the same time control and reward mode.
+                </Text>
+              </View>
+            ) : (
+              <Text style={{ color: "#ffcf70", marginTop: 14 }}>
+                Select a reward-sharing mode to view its details.
+              </Text>
+            )}
+
+            {errorMessage ? (
+              <Text style={{ color: "#ff7373", marginTop: 12 }}>{errorMessage}</Text>
+            ) : null}
+
+            <Pressable
+              style={{ backgroundColor: "#f4a000", borderRadius: 14, paddingVertical: 16, alignItems: "center", marginTop: 22, opacity: selectedModeConfig ? 1 : 0.55 }}
+              disabled={!selectedModeConfig || isSearching}
+              onPress={handleFindOpponent}
+            >
+              <Text style={{ color: "#071e2b", fontSize: 16, fontWeight: "900" }}>
+                FIND AN OPPONENT
+              </Text>
+            </Pressable>
+          </ScrollView>
+        </SafeAreaView>
+      );
+    }
+
+    /* ------------------------------------------------------------------------ */
     /* Searching Screen                                                         */
     /* ------------------------------------------------------------------------ */
 
@@ -2370,7 +2684,6 @@ import { playChessMoveSound } from "@/components/chess/chessSound";
                 color="#ff8a00"
               />
             </View>
-
             <Text
               style={
                 styles.searchTitle
@@ -2384,10 +2697,14 @@ import { playChessMoveSound } from "@/components/chess/chessSound";
                 styles.searchSubtitle
               }
             >
-              Searching for another
-              player using the same
-              time control
+              Searching for another player using the same time control
             </Text>
+            <Text style={{ color: "#FFD166", fontSize: 20, fontWeight: "900", marginTop: 12 }}>
+              {searchSeconds}/30 sec
+            </Text>
+            <View style={{ width: "80%", height: 7, borderRadius: 8, backgroundColor: "#315869", marginTop: 8, overflow: "hidden" }}>
+              <View style={{ width: `${(searchSeconds / 30) * 100}%`, height: "100%", backgroundColor: "#FFD166" }} />
+            </View>
 
             <View
               style={
@@ -2616,10 +2933,7 @@ import { playChessMoveSound } from "@/components/chess/chessSound";
                 }
                 numberOfLines={1}
               >
-                {
-                  opponent?.name ||
-                  "Opponent"
-                }
+                {opponent?.name || "Opponent"} · {opponent?.rating ?? 100}
               </Text>
 
               <View
@@ -2656,6 +2970,7 @@ import { playChessMoveSound } from "@/components/chess/chessSound";
             capturedPieceColor={
               myCapturedPieceColor
             }
+            pieceImages={selectedPieceImages}
           />
           </View>
 
@@ -2669,7 +2984,7 @@ import { playChessMoveSound } from "@/components/chess/chessSound";
           {/* BOARD                                                            */}
           {/* ================================================================ */}
 
-          {settings.showLastMove &&
+          {/* {settings.showLastMove &&
           lastMove ? (
             <View style={styles.lastMoveBar}>
               <Ionicons
@@ -2681,9 +2996,9 @@ import { playChessMoveSound } from "@/components/chess/chessSound";
                 Last move: {lastMove.from.toUpperCase()} → {lastMove.to.toUpperCase()}
               </Text>
             </View>
-          ) : null}
+          ) : null} */}
 
-          {settings.showMoveHelp && selectedSquare ? (
+          {/* {settings.showMoveHelp && selectedSquare ? (
             <View style={styles.moveHelpPanel}>
               <Text style={styles.moveHelpHeading}>
                 <Text style={styles.moveHelpHeadingStrong}>Move help</Text>
@@ -2704,7 +3019,54 @@ import { playChessMoveSound } from "@/components/chess/chessSound";
                 )}
               </View>
             </View>
-          ) : null}
+          ) : null} */}
+
+          {/* <View style={styles.themePickerContainer}>
+            <Text style={styles.themePickerTitle}>
+              Chessboard Themes
+            </Text>
+
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.themeCarouselContent}
+            >
+              {BOARD_THEMES.map((item) => {
+                const selected = boardTheme === item.id;
+
+                return (
+                  <Pressable
+                    key={item.id}
+                    onPress={() => setBoardTheme(item.id)}
+                    style={[
+                      styles.themeCarouselItem,
+                      selected && styles.themeCarouselItemSelected,
+                    ]}
+                  >
+                    <Image
+                      source={item.image}
+                      style={styles.themePreviewImage}
+                      resizeMode="cover"
+                    />
+
+                    <View style={styles.themePreviewFooter}>
+                      <Text style={styles.themePreviewLabel}>
+                        {item.label}
+                      </Text>
+
+                      {selected && (
+                        <Ionicons
+                          name="checkmark-circle"
+                          size={18}
+                          color="#32d583"
+                        />
+                      )}
+                    </View>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </View> */}
 
           <View
             style={
@@ -2713,24 +3075,15 @@ import { playChessMoveSound } from "@/components/chess/chessSound";
           >
             <ChessBoard
               game={game}
-              selectedSquare={
-                selectedSquare
-              }
-              onSquarePress={
-                handleSquarePress
-              }
-              theme={
-                boardTheme
-              }
-              orientation={
-                color === "black"
-                  ? "black"
-                  : "white"
-              }
+              selectedSquare={selectedSquare}
+              onSquarePress={handleSquarePress}
+              theme={boardTheme}
+              orientation={color === "black" ? "black" : "white"}
               lastMove={lastMove}
               showLastMove={settings.showLastMove}
               showMoveHelp={settings.showMoveHelp}
               checkmatedColor={checkmatedColor}
+              pieceSet={pieceSet}
             />
           </View>
 
@@ -2779,10 +3132,7 @@ import { playChessMoveSound } from "@/components/chess/chessSound";
                 }
                 numberOfLines={1}
               >
-                {
-                  player?.name ||
-                  "You"
-                }
+                {player?.name || "You"} · {player?.rating ?? 100}
               </Text>
 
               <View
@@ -2819,6 +3169,7 @@ import { playChessMoveSound } from "@/components/chess/chessSound";
             capturedPieceColor={
               opponentCapturedPieceColor
             }
+            pieceImages={selectedPieceImages}
           />
           </View>
 
@@ -2836,11 +3187,7 @@ import { playChessMoveSound } from "@/components/chess/chessSound";
                 style={
                   styles.actionButton
                 }
-                onPress={() =>
-                  setChatVisible(
-                    true
-                  )
-                }
+                onPress={openChat}
               >
                 <Ionicons
                   name="chatbubble-ellipses-outline"
@@ -2866,11 +3213,20 @@ import { playChessMoveSound } from "@/components/chess/chessSound";
                 handleOfferDraw
               }
             >
-              <Ionicons
-                name="hand-left-outline"
-                size={22}
-                color="#ffffff"
-              />
+              <View style={styles.handIconWrapper}>
+                <Ionicons
+                  name="hand-left-outline"
+                  size={22}
+                  color="#ffffff"
+                />
+                {unreadChatCount > 0 ? (
+                  <View style={styles.chatNotificationBadge}>
+                    <Text style={styles.chatNotificationBadgeText}>
+                      {unreadChatCount > 99 ? "99+" : unreadChatCount}
+                    </Text>
+                  </View>
+                ) : null}
+              </View>
 
               <Text
                 style={
@@ -3017,9 +3373,6 @@ import { playChessMoveSound } from "@/components/chess/chessSound";
           ) : null}
         </ScrollView>
 
-        {/* AdMob banner: visible during the game and remains available after the result modal closes. */}
-        <AdBanner />
-
         <Modal
           visible={pendingMoveConfirmation !== null}
           transparent
@@ -3082,11 +3435,7 @@ import { playChessMoveSound } from "@/components/chess/chessSound";
           }
           transparent
           animationType="slide"
-          onRequestClose={() =>
-            setChatVisible(
-              false
-            )
-          }
+          onRequestClose={closeChat}
         >
           <View
             style={
@@ -3112,11 +3461,7 @@ import { playChessMoveSound } from "@/components/chess/chessSound";
                 </Text>
 
                 <Pressable
-                  onPress={() =>
-                    setChatVisible(
-                      false
-                    )
-                  }
+                  onPress={closeChat}
                 >
                   <Ionicons
                     name="close"
@@ -3463,13 +3808,13 @@ import { playChessMoveSound } from "@/components/chess/chessSound";
                 : gameStats.black
             }
 
-            playerAvatar="🦁"
+            playerAvatar={player?.avatar || "🦊"}
 
-            opponentAvatar="👤"
+            opponentAvatar={opponent?.avatar || "🐼"}
 
-            playerFlag="🇮🇳"
+            playerFlag={player?.countryCode === "+91" || player?.countryCode === "IN" ? "🇮🇳" : "🌐"}
 
-            opponentFlag="🏳️"
+            opponentFlag={opponent?.countryCode === "+91" || opponent?.countryCode === "IN" ? "🇮🇳" : "🌐"}
 
             points={
               gameResult.includes(
@@ -3507,6 +3852,7 @@ import { playChessMoveSound } from "@/components/chess/chessSound";
             }}
 
             onNewGame={() => {
+              // void showGameCompletionAd();
               if (resultModalTimerRef.current) {
                 clearTimeout(resultModalTimerRef.current);
                 resultModalTimerRef.current = null;
@@ -3549,14 +3895,14 @@ import { playChessMoveSound } from "@/components/chess/chessSound";
               * session.
               */
               findRandomOpponent(
-                selectedMode
+                selectedMode,
+                selectedRewardMode
               );
             }}
 
             onClose={() => {
-              setResultModalVisible(
-                false
-              );
+              setResultModalVisible(false);
+              // void showGameCompletionAd();
             }}
 
             onReviewGame={() => {
@@ -3769,14 +4115,15 @@ import { playChessMoveSound } from "@/components/chess/chessSound";
     },
 
     activeClock: {
-      color: "#27f103",
-      borderColor: "#ff9d2e",
+      color: "#e27d0a",
+      borderColor: "#e27d0a",
       backgroundColor: "#1b2430",
     },
 
     clockText: {
       color: "#ffffff",
       fontSize: 15,
+      marginLeft: -7,
       fontWeight: "900",
       fontVariant: [
         "tabular-nums",
@@ -3915,6 +4262,35 @@ import { playChessMoveSound } from "@/components/chess/chessSound";
       backgroundColor: "#142237",
       alignItems: "center",
       justifyContent: "center",
+    },
+
+    handIconWrapper: {
+      position: "relative",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+
+    chatNotificationBadge: {
+      position: "absolute",
+      top: -8,
+      right: -13,
+      minWidth: 18,
+      height: 18,
+      paddingHorizontal: 4,
+      borderRadius: 9,
+      backgroundColor: "#F04444",
+      borderWidth: 1,
+      borderColor: "#ffffff",
+      alignItems: "center",
+      justifyContent: "center",
+      zIndex: 5,
+    },
+
+    chatNotificationBadgeText: {
+      color: "#ffffff",
+      fontSize: 10,
+      fontWeight: "900",
+      lineHeight: 12,
     },
 
     resignButton: {
@@ -4384,6 +4760,54 @@ import { playChessMoveSound } from "@/components/chess/chessSound";
     promotionLabel: {
       color: "#ffffff",
       fontSize: 15,
+      fontWeight: "800",
+    },
+    themePickerContainer: {
+      marginVertical: 12,
+    },
+
+    themePickerTitle: {
+      color: "#ffffff",
+      fontSize: 17,
+      fontWeight: "900",
+      marginBottom: 12,
+    },
+
+    themeCarouselContent: {
+      gap: 12,
+      paddingVertical: 5,
+      paddingRight: 12,
+    },
+
+    themeCarouselItem: {
+      width: 145,
+      padding: 7,
+      borderRadius: 14,
+      backgroundColor: "#142237",
+      borderWidth: 2,
+      borderColor: "#26374e",
+    },
+
+    themeCarouselItemSelected: {
+      borderColor: "#32d583",
+    },
+
+    themePreviewImage: {
+      width: "100%",
+      height: 105,
+      borderRadius: 9,
+    },
+
+    themePreviewFooter: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      marginTop: 8,
+    },
+
+    themePreviewLabel: {
+      color: "#ffffff",
+      fontSize: 12,
       fontWeight: "800",
     },
 

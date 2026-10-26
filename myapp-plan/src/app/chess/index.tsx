@@ -1318,7 +1318,7 @@ const styles = StyleSheet.create({
     gap: 11,
   },
   primaryButtonIcon: {
-    marginLeft: 220,
+    // marginLeft: 220,
     width: 47,
     height: 47,
     borderRadius: 15,

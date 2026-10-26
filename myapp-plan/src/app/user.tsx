@@ -117,21 +117,11 @@ export default function UserScreen() {
         contentContainerStyle={styles.scrollContent}
       >
         <View style={styles.headerInner}>
-          <LinearGradient
-            colors={["#00D5FF", "#426DFF", "#7D42FF"]}
-            style={styles.brandIcon}
-          >
-            <Ionicons name="game-controller" size={32} color="#FFFFFF" />
-          </LinearGradient>
-          <View style={styles.profileOuter}>
+          {/* <View style={styles.profileOuter}>
             <View style={styles.profileInner}>
               <Text style={styles.profileInitial}>{initial}</Text>
             </View>
-          </View>
-          <View style={styles.headerStatus}>
-            <View style={styles.statusDot} />
-            <Text style={styles.statusText}>ONLINE</Text>
-          </View>
+          </View> */}
         </View>
 
         {/* NEON BRAND HEADER */}
@@ -177,8 +167,13 @@ export default function UserScreen() {
             <Text style={styles.welcomeHeading}>
               <Text style={styles.heroJay}>Jay Tech</Text>
             </Text>
-            <Text style={styles.heroSubheading}>Games Spot</Text>
-
+            <Text style={styles.heroSubheading}>Games Spot  <LinearGradient
+              colors={["#021553", "#059ab8", "#210165"]}
+              style={styles.brandIcon}
+            >
+              <Ionicons name="game-controller" size={32} color="#FFFFFF" />
+            </LinearGradient>
+            </Text>
             <View style={styles.heroAccentLine}>
               <View style={styles.accentLine} />
               <Ionicons name="sparkles" size={17} color="#00D9FF" />
@@ -375,31 +370,6 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     letterSpacing: 2,
     marginTop: 3,
-  },
-
-  headerStatus: {
-    marginLeft: 180,
-    flexDirection: "row",
-    alignItems: "baseline",
-    gap: 5,
-    paddingHorizontal: 8,
-    paddingVertical: 8,
-    borderRadius: 15,
-    backgroundColor: "#12223F",
-  },
-
-  statusDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 4,
-    backgroundColor: "#00E6A2",
-  },
-
-  statusText: {
-    fontSize: 8,
-    fontWeight: "900",
-    color: "#B8D7FF",
-    letterSpacing: 0.5,
   },
 
   profileOuter: {

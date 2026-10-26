@@ -4,7 +4,10 @@ const crypto = require("crypto");
 
 const User = require("../models/User");
 const FriendRequest = require("../models/FriendRequest");
-const {settleChessMatch} = require("../services/chessRewardService");
+const {
+  settleChessMatch,
+  CHESS_REWARD_MODES,
+} = require("../services/chessRewardService");
 
 const MODE = {
   rapid: { base: 600000, increment: 0 },
@@ -307,9 +310,67 @@ const finishGame = async (
   const loserPlayer =
     winner === "white" ? black : winner === "black" ? white : null;
 
+  // Settle virtual chess coins once when the game ends. Rating and game-over
+  // events remain available even if the reward ledger reports an error.
+  let rewardSettlement = null;
+  let rewardSettlementError = null;
+  let coinBalances = {};
+
+  try {
+    const outcome =
+      winner === "white" || winner === "black" ? "win" : "draw";
+
+    const winnerId =
+      winner === "white"
+        ? game.white.userId
+        : winner === "black"
+          ? game.black.userId
+          : null;
+
+    const loserId =
+      winner === "white"
+        ? game.black.userId
+        : winner === "black"
+          ? game.white.userId
+          : null;
+
+    rewardSettlement = await settleChessMatch({
+      matchId: game.id,
+      modeId: game.rewardModeId || "free",
+      winnerId,
+      loserId,
+      player1Id: game.white.userId,
+      player2Id: game.black.userId,
+      outcome,
+    });
+
+    const [whiteBalance, blackBalance] = await Promise.all([
+      User.findById(game.white.userId).select("gems"),
+      User.findById(game.black.userId).select("gems"),
+    ]);
+
+    coinBalances = {
+      [String(game.white.userId)]: Number(whiteBalance?.gems || 0),
+      [String(game.black.userId)]: Number(blackBalance?.gems || 0),
+    };
+  } catch (error) {
+    rewardSettlementError =
+      error?.message || "Virtual coin settlement failed.";
+
+    console.error("Chess reward settlement failed:", {
+      gameId: game.id,
+      modeId: game.rewardModeId || "free",
+      error: rewardSettlementError,
+    });
+  }
+
   const payload = {
     gameId: game.id,
     mode: game.mode,
+    rewardModeId: game.rewardModeId || "free",
+    rewardSettlement,
+    rewardSettlementError,
+    coinBalances,
     reason,
     winner,
     resignedBy,
@@ -397,7 +458,7 @@ const startGame = (game) => {
   }
 };
 
-const matchmake = async (socket, mode) => {
+const matchmake = async (socket, mode, rewardModeId = "free") => {
   try {
     if (!MODE[mode]) {
       socket.emit("chess:error", {
@@ -415,29 +476,68 @@ const matchmake = async (socket, mode) => {
       return;
     }
 
+    if (!CHESS_REWARD_MODES[rewardModeId]) {
+      socket.emit("chess:error", {
+        code: "INVALID_REWARD_MODE",
+        message: "Invalid virtual coin reward mode.",
+      });
+      return;
+    }
+
+    const rewardConfig = CHESS_REWARD_MODES[rewardModeId];
+    const ownUser = await User.findById(socket.userId).select("gems");
+
+    if (!ownUser) {
+      socket.emit("chess:error", {
+        code: "USER_NOT_FOUND",
+        message: "Your player account was not found.",
+      });
+      return;
+    }
+
+    if (
+      Number(ownUser.gems || 0) < Number(rewardConfig.entryCoins || 0)
+    ) {
+      socket.emit("chess:error", {
+        code: "INSUFFICIENT_COINS",
+        message: `You need ${rewardConfig.entryCoins} virtual coins to enter ${rewardConfig.name}. Your balance is ${Number(ownUser.gems || 0)}.`,
+        requiredCoins: rewardConfig.entryCoins,
+        balance: Number(ownUser.gems || 0),
+      });
+      return;
+    }
+
     removeFromQueue(socket.id);
 
-    const ids = queues.get(mode) || [];
+    const queueKey = `${mode}:${rewardModeId}`;
+    const ids = queues.get(queueKey) || [];
+
     const opponentId = ids.find(
       (id) => id !== socket.id && ioRef.sockets.sockets.get(id)
     );
 
     if (!opponentId) {
       ids.push(socket.id);
-      queues.set(mode, ids);
-      socket.emit("chess:searching", { mode });
+      queues.set(queueKey, ids);
+
+      socket.emit("chess:searching", {
+        mode,
+        rewardModeId,
+        entryCoins: rewardConfig.entryCoins,
+      });
+
       return;
     }
 
     queues.set(
-      mode,
+      queueKey,
       ids.filter((id) => id !== opponentId)
     );
 
     const opponentSocket = ioRef.sockets.sockets.get(opponentId);
 
     if (!opponentSocket) {
-      return matchmake(socket, mode);
+      return matchmake(socket, mode, rewardModeId);
     }
 
     if (!opponentSocket.userId) {
@@ -449,7 +549,25 @@ const matchmake = async (socket, mode) => {
     }
 
     if (String(socket.userId) === String(opponentSocket.userId)) {
-      return matchmake(socket, mode);
+      return matchmake(socket, mode, rewardModeId);
+    }
+
+    const opponentUser = await User.findById(opponentSocket.userId).select(
+      "gems"
+    );
+
+    if (
+      !opponentUser ||
+      Number(opponentUser.gems || 0) < Number(rewardConfig.entryCoins || 0)
+    ) {
+      opponentSocket.emit("chess:error", {
+        code: "INSUFFICIENT_COINS",
+        message: `You need ${rewardConfig.entryCoins} virtual coins to enter ${rewardConfig.name}. Please choose another reward mode or earn more coins.`,
+        requiredCoins: rewardConfig.entryCoins,
+        balance: Number(opponentUser?.gems || 0),
+      });
+
+      return matchmake(socket, mode, rewardModeId);
     }
 
     const gameId = crypto.randomUUID();
@@ -460,6 +578,8 @@ const matchmake = async (socket, mode) => {
       id: gameId,
       room,
       mode,
+      rewardModeId,
+      rewardConfig,
       config,
       game: new Chess(),
 
@@ -514,6 +634,8 @@ const matchmake = async (socket, mode) => {
       gameId,
       fen: game.game.fen(),
       mode,
+      rewardModeId,
+      rewardMode: rewardConfig,
       clocks: getClocks(game),
     };
 
@@ -964,9 +1086,12 @@ const setupChessSocket = (io, app) => {
       socket.emit("chess:presence", { count: online.size });
     });
 
-    socket.on("chess:matchmake", async ({ mode } = {}) => {
-      await matchmake(socket, mode);
-    });
+    socket.on(
+      "chess:matchmake",
+      async ({ mode, rewardModeId = "free" } = {}) => {
+        await matchmake(socket, mode, rewardModeId);
+      }
+    );
 
     socket.on("chess:cancelMatchmaking", () => {
       removeFromQueue(socket.id);

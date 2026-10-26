@@ -16,7 +16,7 @@ import { ChessRewardModeId } from "@/types/chessRewards";
 const SOCKET_URL = process.env.EXPO_PUBLIC_SOCKET_URL || "http://192.168.31.214:5000";
 
 // const SOCKET_URL = process.env.EXPO_PUBLIC_SOCKET_URL || "http://172.27.170.226:5000";
-// const SOCKET_URL = process.env.EXPO_PUBLIC_SOCKET_URL || "https://jaytech-backend.onrender.com";
+// const SOCKET_URL = process.env.EXPO_PUBLIC_SOCKET_URL || "https://jaytech-backend-4.onrender.com";
 
 /* -------------------------------------------------------------------------- */
 /* Player                                                                     */

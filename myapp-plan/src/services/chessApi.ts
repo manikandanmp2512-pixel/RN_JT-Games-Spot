@@ -23,6 +23,7 @@ import axios from "axios";
 
 const API_URL = "http://192.168.31.214:5000/api";
 // const API_URL = "http://172.27.170.226:5000/api";
+// const API_URL = "https://jaytech-backend-4.onrender.com";
 
 const api = axios.create({
   baseURL: API_URL,

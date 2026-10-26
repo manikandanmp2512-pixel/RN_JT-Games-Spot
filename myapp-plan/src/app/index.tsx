@@ -223,7 +223,7 @@ export default function Index() {
                   <Text style={styles.badgeText}>CONNECT</Text>
                   <Text style={styles.badgeSeparator}>•</Text>
                   <Text style={[styles.badgeText, styles.cyan]}>
-                    COMPETE
+                    COMPLETE
                   </Text>
                 </View>
 

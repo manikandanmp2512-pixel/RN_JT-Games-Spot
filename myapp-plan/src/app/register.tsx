@@ -1,12 +1,26 @@
 import { useRef, useState } from "react";
 
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import {
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
 
 import { router } from "expo-router";
 
 import { registerUser } from "@/services/authApi";
 
 import { showError, showSuccess } from "@/components/JayToast";
+import { countryCodeToFlag } from "@/utils/chessUtils";
+import CountryPicker, {
+  Country,
+  CountryCode,
+} from "react-native-country-picker-modal";
 
 // =============================================================
 // REGEX
@@ -47,34 +61,32 @@ export default function Register() {
     confirmPassword: "",
   });
 
-  const [loading, setLoading] =
-    useState(false);
+  const [loading, setLoading] = useState(false);
+
+  // Country Code
+  const [countryPickerVisible, setCountryPickerVisible] = useState(false);
+  const [selectedCountry, setSelectedCountry] = useState<CountryCode>("IN");
+  const [countryCallingCode, setCountryCallingCode] = useState("+91");
 
   // ===========================================================
   // PASSWORD VISIBILITY
   // ===========================================================
 
-  const [showPassword, setShowPassword] =
-    useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
-  const [showConfirmPassword, setShowConfirmPassword] =
-    useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   // ===========================================================
   // SCROLL VIEW
   // ===========================================================
 
-  const scrollRef =
-    useRef<ScrollView>(null);
+  const scrollRef = useRef<ScrollView>(null);
 
   // ===========================================================
   // UPDATE FORM
   // ===========================================================
 
-  const update = (
-    key: keyof typeof form,
-    value: string
-  ) => {
+  const update = (key: keyof typeof form, value: string) => {
     setForm((previous) => ({
       ...previous,
       [key]: value,
@@ -99,30 +111,22 @@ export default function Register() {
   // ===========================================================
 
   const validateForm = () => {
-    const firstName =
-      form.fname.trim();
+    const firstName = form.fname.trim();
 
-    const lastName =
-      form.lname.trim();
+    const lastName = form.lname.trim();
 
-    const email =
-      form.email.trim().toLowerCase();
+    const email = form.email.trim().toLowerCase();
 
-    const countryCode =
-      form.countryCode.trim();
+    const countryCode = form.countryCode.trim();
 
-    const mobile =
-      form.mobilenumber.trim();
+    const mobile = form.mobilenumber.trim();
 
     // ---------------------------------------------------------
     // FIRST NAME
     // ---------------------------------------------------------
 
     if (!firstName) {
-      showError(
-        "First Name Required",
-        "Please enter your first name."
-      );
+      showError("First Name Required", "Please enter your first name.");
       return false;
     }
 
@@ -139,10 +143,7 @@ export default function Register() {
     // ---------------------------------------------------------
 
     if (!lastName) {
-      showError(
-        "Last Name Required",
-        "Please enter your last name."
-      );
+      showError("Last Name Required", "Please enter your last name.");
       return false;
     }
 
@@ -159,18 +160,12 @@ export default function Register() {
     // ---------------------------------------------------------
 
     if (!email) {
-      showError(
-        "Email Required",
-        "Please enter your email address."
-      );
+      showError("Email Required", "Please enter your email address.");
       return false;
     }
 
     if (!EMAIL_REGEX.test(email)) {
-      showError(
-        "Invalid Email",
-        "Please enter a valid email address."
-      );
+      showError("Invalid Email", "Please enter a valid email address.");
       return false;
     }
 
@@ -191,10 +186,7 @@ export default function Register() {
     // ---------------------------------------------------------
 
     if (!mobile) {
-      showError(
-        "Mobile Number Required",
-        "Please enter your mobile number."
-      );
+      showError("Mobile Number Required", "Please enter your mobile number.");
       return false;
     }
 
@@ -211,10 +203,7 @@ export default function Register() {
     // ---------------------------------------------------------
 
     if (!form.password) {
-      showError(
-        "Password Required",
-        "Please enter a password."
-      );
+      showError("Password Required", "Please enter a password.");
       return false;
     }
 
@@ -231,17 +220,11 @@ export default function Register() {
     // ---------------------------------------------------------
 
     if (!form.confirmPassword) {
-      showError(
-        "Confirm Password",
-        "Please confirm your password."
-      );
+      showError("Confirm Password", "Please confirm your password.");
       return false;
     }
 
-    if (
-      form.password !==
-      form.confirmPassword
-    ) {
+    if (form.password !== form.confirmPassword) {
       showError(
         "Password Mismatch",
         "Password and confirm password must match."
@@ -350,29 +333,21 @@ export default function Register() {
 
         lname: form.lname.trim(),
 
-        email:
-          form.email
-            .trim()
-            .toLowerCase(),
+        email: form.email.trim().toLowerCase(),
 
-        countryCode:
-          form.countryCode.trim(),
+        countryCode: form.countryCode.trim(),
 
-        mobilenumber:
-          form.mobilenumber.trim(),
+        mobilenumber: form.mobilenumber.trim(),
 
-        password:
-          form.password,
+        password: form.password,
 
-        confirmPassword:
-          form.confirmPassword,
+        confirmPassword: form.confirmPassword,
       });
 
       if (!result.success) {
         showError(
           "Registration Failed",
-          result.message ||
-            "Unable to start registration."
+          result.message || "Unable to start registration."
         );
 
         return;
@@ -385,67 +360,62 @@ export default function Register() {
 
       setTimeout(() => {
         router.push({
-          pathname:
-            "/verify-register-otp",
+          pathname: "/verify-register-otp",
 
           params: {
-            email:
-              form.email
-                .trim()
-                .toLowerCase(),
+            email: form.email.trim().toLowerCase(),
           },
         });
       }, 600);
     } catch (error: any) {
-        console.error("========== REGISTER DEBUG ==========");
-        console.error("Request URL:", error?.config?.url);
-        console.error("HTTP Status:", error?.response?.status);
-        console.error("Backend Response:", error?.response?.data);
-        console.error("Request Payload:", error?.config?.data);
-        console.error("Error Message:", error?.message);
-        console.error("====================================");
+      console.error("========== REGISTER DEBUG ==========");
+      console.error("Request URL:", error?.config?.url);
+      console.error("HTTP Status:", error?.response?.status);
+      console.error("Backend Response:", error?.response?.data);
+      console.error("Request Payload:", error?.config?.data);
+      console.error("Error Message:", error?.message);
+      console.error("====================================");
 
-        const backendMessage =
-          error?.response?.data?.message ||
-          error?.response?.data?.error ||
-          error?.response?.data?.details;
+      const backendMessage =
+        error?.response?.data?.message ||
+        error?.response?.data?.error ||
+        error?.response?.data?.details;
 
-        showError(
-          "Registration Failed",
-          typeof backendMessage === "string"
-            ? backendMessage
-            : "The server could not complete registration. Check the backend terminal for the exact error."
-        );
-      } finally {
+      showError(
+        "Registration Failed",
+        typeof backendMessage === "string"
+          ? backendMessage
+          : "The server could not complete registration. Check the backend terminal for the exact error."
+      );
+    } finally {
       setLoading(false);
     }
   };
 
-// ===========================================================
+  // ===========================================================
   // UI
   // ===========================================================
 
   return (
     <KeyboardAvoidingView
       style={styles.safe}
-      behavior={ Platform.OS === "ios" ? "padding" : "height" }
-      keyboardVerticalOffset={ Platform.OS === "ios" ? 10 : 0 } >
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 10 : 0}
+    >
       <ScrollView
         ref={scrollRef}
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
-        automaticallyAdjustKeyboardInsets={ true } >
+        automaticallyAdjustKeyboardInsets={true}
+      >
         <View style={styles.formContainer}>
-
           {/* =================================================
               TITLE
           ================================================= */}
 
-          <Text style={styles.title}>
-            Create Account
-          </Text>
+          <Text style={styles.title}>Create Account</Text>
 
           <Text style={styles.sub}>
             Register once, then play Chess, Carrom and Ludo.
@@ -455,43 +425,33 @@ export default function Register() {
               FIRST + LAST NAME
           ================================================= */}
 
-          <View style={[ styles.row, styles.nameRow ]} >
+          <View style={[styles.row, styles.nameRow]}>
             <TextInput
               value={form.fname}
-              onChangeText={(value) => update("fname", value.replace(/[^A-Za-z]/g, "").slice(0, 30))}
+              onChangeText={(value) =>
+                update("fname", value.replace(/[^A-Za-z]/g, "").slice(0, 30))
+              }
               onFocus={() => handleFocus(0)}
               placeholder="First name"
               placeholderTextColor="#7894A2"
               autoCapitalize="words"
               autoCorrect={false}
               returnKeyType="next"
-              style={[ styles.input, styles.half]} />
+              style={[styles.input, styles.half]}
+            />
 
             <TextInput
               value={form.lname}
               onChangeText={(value) =>
-                update(
-                  "lname",
-                  value
-                    .replace(
-                      /[^A-Za-z]/g,
-                      ""
-                    )
-                    .slice(0, 30)
-                )
+                update("lname", value.replace(/[^A-Za-z]/g, "").slice(0, 30))
               }
-              onFocus={() =>
-                handleFocus(0)
-              }
+              onFocus={() => handleFocus(0)}
               placeholder="Last name"
               placeholderTextColor="#7894A2"
               autoCapitalize="words"
               autoCorrect={false}
               returnKeyType="next"
-              style={[
-                styles.input,
-                styles.half,
-              ]}
+              style={[styles.input, styles.half]}
             />
           </View>
 
@@ -502,16 +462,9 @@ export default function Register() {
           <TextInput
             value={form.email}
             onChangeText={(value) =>
-              update(
-                "email",
-                value
-                  .replace(/\s/g, "")
-                  .slice(0, 100)
-              )
+              update("email", value.replace(/\s/g, "").slice(0, 100))
             }
-            onFocus={() =>
-              handleFocus(45)
-            }
+            onFocus={() => handleFocus(45)}
             autoCapitalize="none"
             autoCorrect={false}
             keyboardType="email-address"
@@ -526,65 +479,63 @@ export default function Register() {
           ================================================= */}
 
           <View style={styles.row}>
-
-            <TextInput
+            {/* <TextInput
               value={form.countryCode}
               onChangeText={(value) => {
-                let cleaned =
-                  value.replace(
-                    /[^\d+]/g,
-                    ""
-                  );
+                let cleaned = value.replace(/[^\d+]/g, "");
 
-                if (
-                  cleaned &&
-                  !cleaned.startsWith("+")
-                ) {
-                  cleaned =
-                    "+" + cleaned;
+                if (cleaned && !cleaned.startsWith("+")) {
+                  cleaned = "+" + cleaned;
                 }
 
-                update(
-                  "countryCode",
-                  cleaned.slice(0, 4)
-                );
+                update("countryCode", cleaned.slice(0, 4));
               }}
-              onFocus={() =>
-                handleFocus(90)
-              }
+              onFocus={() => handleFocus(90)}
               keyboardType="phone-pad"
               returnKeyType="next"
               placeholder="+91"
               placeholderTextColor="#7894A2"
-              style={[
-                styles.input,
-                styles.code,
-              ]}
+              style={[styles.input, styles.code]}
+            /> */}
+            <Pressable
+              onPress={() => setCountryPickerVisible(true)}
+              style={[styles.input, styles.code, styles.countryButton]}
+            >
+              <Text style={styles.countryButtonText}>
+                {countryCodeToFlag(form.countryCode)} {form.countryCode} ▾
+              </Text>
+            </Pressable>
+
+            <CountryPicker
+              countryCode={selectedCountry}
+              withFilter
+              withFlag
+              withCallingCode
+              withCountryNameButton
+              withCallingCodeButton={false}
+              visible={countryPickerVisible}
+              onClose={() => setCountryPickerVisible(false)}
+              onSelect={(country: Country) => {
+                const dialCode = `+${country.callingCode?.[0] || "91"}`;
+
+                setSelectedCountry(country.cca2);
+                setCountryCallingCode(dialCode);
+                update("countryCode", dialCode);
+                setCountryPickerVisible(false);
+              }}
             />
 
             <TextInput
-              value={
-                form.mobilenumber
-              }
+              value={form.mobilenumber}
               onChangeText={(value) =>
-                update(
-                  "mobilenumber",
-                  value
-                    .replace(/\D/g, "")
-                    .slice(0, 10)
-                )
+                update("mobilenumber", value.replace(/\D/g, "").slice(0, 10))
               }
-              onFocus={() =>
-                handleFocus(90)
-              }
+              onFocus={() => handleFocus(90)}
               keyboardType="phone-pad"
               returnKeyType="next"
               placeholder="Mobile number"
               placeholderTextColor="#7894A2"
-              style={[
-                styles.input,
-                styles.mobile,
-              ]}
+              style={[styles.input, styles.mobile]}
             />
           </View>
 
@@ -596,57 +547,31 @@ export default function Register() {
               PASSWORD
           ================================================= */}
 
-          <View
-            style={[
-              styles.passwordContainer,
-              styles.passwordFirst,
-            ]}
-          >
+          <View style={[styles.passwordContainer, styles.passwordFirst]}>
             <TextInput
               value={form.password}
-              onChangeText={(value) =>
-                update(
-                  "password",
-                  value
-                )
-              }
-              onFocus={() =>
-                handleFocus(145)
-              }
-              secureTextEntry={
-                !showPassword
-              }
+              onChangeText={(value) => update("password", value)}
+              onFocus={() => handleFocus(145)}
+              secureTextEntry={!showPassword}
               autoCapitalize="none"
               autoCorrect={false}
               returnKeyType="next"
               placeholder="Password"
               placeholderTextColor="#7894A2"
-              style={[
-                styles.input,
-                styles.passwordInput,
-              ]}
+              style={[styles.input, styles.passwordInput]}
             />
 
             <Pressable
               style={({ pressed }) => [
                 styles.showButton,
                 {
-                  opacity: pressed
-                    ? 0.6
-                    : 1,
+                  opacity: pressed ? 0.6 : 1,
                 },
               ]}
-              onPress={() =>
-                setShowPassword(
-                  (previous) =>
-                    !previous
-                )
-              }
+              onPress={() => setShowPassword((previous) => !previous)}
             >
               <Text style={styles.showText}>
-                {showPassword
-                  ? "Hide"
-                  : "Show"}
+                {showPassword ? "Hide" : "Show"}
               </Text>
             </Pressable>
           </View>
@@ -655,58 +580,31 @@ export default function Register() {
               CONFIRM PASSWORD
           ================================================= */}
 
-          <View
-            style={
-              styles.passwordContainer
-            }
-          >
+          <View style={styles.passwordContainer}>
             <TextInput
-              value={
-                form.confirmPassword
-              }
-              onChangeText={(value) =>
-                update(
-                  "confirmPassword",
-                  value
-                )
-              }
-              onFocus={() =>
-                handleFocus(200)
-              }
-              secureTextEntry={
-                !showConfirmPassword
-              }
+              value={form.confirmPassword}
+              onChangeText={(value) => update("confirmPassword", value)}
+              onFocus={() => handleFocus(200)}
+              secureTextEntry={!showConfirmPassword}
               autoCapitalize="none"
               autoCorrect={false}
               returnKeyType="done"
               placeholder="Confirm password"
               placeholderTextColor="#7894A2"
-              style={[
-                styles.input,
-                styles.passwordInput,
-              ]}
+              style={[styles.input, styles.passwordInput]}
             />
 
             <Pressable
               style={({ pressed }) => [
                 styles.showButton,
                 {
-                  opacity: pressed
-                    ? 0.6
-                    : 1,
+                  opacity: pressed ? 0.6 : 1,
                 },
               ]}
-              onPress={() =>
-                setShowConfirmPassword(
-                  (previous) =>
-                    !previous
-                )
-              }
+              onPress={() => setShowConfirmPassword((previous) => !previous)}
             >
               <Text style={styles.showText}>
-                {showConfirmPassword
-                  ? "Hide"
-                  : "Show"}
+                {showConfirmPassword ? "Hide" : "Show"}
               </Text>
             </Pressable>
           </View>
@@ -721,21 +619,12 @@ export default function Register() {
             style={({ pressed }) => [
               styles.button,
               {
-                opacity:
-                  loading || pressed
-                    ? 0.7
-                    : 1,
+                opacity: loading || pressed ? 0.7 : 1,
               },
             ]}
           >
-            <Text
-              style={
-                styles.buttonText
-              }
-            >
-              {loading
-                ? "Creating…"
-                : "Create Account"}
+            <Text style={styles.buttonText}>
+              {loading ? "Creating…" : "Create Account"}
             </Text>
           </Pressable>
 
@@ -743,16 +632,11 @@ export default function Register() {
               LOGIN
           ================================================= */}
 
-          <Pressable
-            onPress={() =>
-              router.replace("/login")
-            }
-          >
+          <Pressable onPress={() => router.replace("/login")}>
             <Text style={styles.textlogin}>
-              Already have an account?   <Text style={styles.login}>Login</Text>
+              Already have an account? <Text style={styles.login}>Login</Text>
             </Text>
           </Pressable>
-
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -933,5 +817,18 @@ const styles = StyleSheet.create({
   },
   login: {
     color: "#F4A000",
+  },
+
+  
+  countryButton: {
+    width: 115,
+    justifyContent: "center",
+    paddingHorizontal: 8,
+  },
+
+  countryButtonText: {
+    color: "#FFFFFF",
+    fontSize: 13,
+    fontWeight: "800",
   },
 });

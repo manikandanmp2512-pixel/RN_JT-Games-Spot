@@ -1,7 +1,7 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { router } from "expo-router";
-import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { LinearGradient } from "expo-linear-gradient";
+import { router } from "expo-router";
 import { useEffect, useState } from "react";
 import {
   Image,
@@ -34,8 +34,7 @@ export default function Navbar() {
       if (userData) {
         const user = JSON.parse(userData);
 
-        const fullName =
-          `${user?.fname || ""} ${user?.lname || ""}`.trim();
+        const fullName = `${user?.fname || ""} ${user?.lname || ""}`.trim();
 
         setUserName(fullName || "User");
       } else {
@@ -109,9 +108,7 @@ export default function Navbar() {
     iconBackground: isDark
       ? "rgba(255,255,255,0.10)"
       : "rgba(255,255,255,0.12)",
-    iconBorder: isDark
-      ? "rgba(173,205,255,0.12)"
-      : "rgba(255,255,255,0.22)",
+    iconBorder: isDark ? "rgba(173,205,255,0.12)" : "rgba(255,255,255,0.22)",
   };
 
   // =========================================================
@@ -189,20 +186,26 @@ export default function Navbar() {
             {/* Brand text */}
             <View style={styles.brandContainer}>
               {isLoggedIn ? (
-                <Text
-                  numberOfLines={1}
-                  adjustsFontSizeToFit
-                  style={[
-                    styles.brandText,
-                    {
-                      fontSize: isMobile ? 15 : 21,
-                      color: colors.text,
-                      maxWidth: isMobile ? 115 : 220,
-                    },
-                  ]}
-                >
-                  {userName}
-                </Text>
+                <View style={styles.headerStatus}>
+                  <Text
+                    numberOfLines={1}
+                    adjustsFontSizeToFit
+                    style={[
+                      styles.brandText,
+                      {
+                        fontSize: isMobile ? 15 : 21,
+                        color: colors.text,
+                        maxWidth: isMobile ? 115 : 220,
+                      },
+                    ]}
+                  >
+                    {userName}
+                  </Text>
+                  <View style={styles.headerStatusdot}>
+                  <View style={styles.statusDot} />
+                  <Text style={styles.statusText}>ONLINE</Text>
+                  </View>
+                </View>
               ) : (
                 <Text
                   numberOfLines={1}
@@ -215,24 +218,22 @@ export default function Navbar() {
                     },
                   ]}
                 >
-                  <Text style={styles.jayText}>Jay </Text>
-                  <Text style={styles.techText}>Tech</Text>
+                  {/* <Text style={styles.jayText}>Jay </Text> */}
+                  <Text style={styles.techText}>Jay Technology</Text>
+                  {/* <Text numberOfLines={1}
+                    style={[
+                      styles.brandSubtitle,
+                      {
+                        fontSize: isMobile ? 11 : 15,
+                        color: colors.subtitle,
+                        letterSpacing: isMobile ? 1.2 : 1.8,
+                      },
+                    ]}
+                  >
+                    Games Spot
+                  </Text> */}
                 </Text>
               )}
-
-              <Text
-                numberOfLines={1}
-                style={[
-                  styles.brandSubtitle,
-                  {
-                    fontSize: isMobile ? 11 : 15,
-                    color: colors.subtitle,
-                    letterSpacing: isMobile ? 1.2 : 1.8,
-                  },
-                ]}
-              >
-                Games Spot
-              </Text>
             </View>
           </Pressable>
 
@@ -389,6 +390,7 @@ const styles = StyleSheet.create({
   },
 
   brandSubtitle: {
+    flexDirection: "row",
     fontWeight: "600",
     marginTop: 3,
     includeFontPadding: false,
@@ -415,5 +417,42 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.15,
     shadowRadius: 5,
     elevation: 4,
+  },
+
+  headerStatus: {
+    alignItems: "baseline",
+    gap: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+  },
+
+  headerStatusdot: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    gap: 5,
+    paddingHorizontal: 7,
+    paddingVertical: 8,
+  },
+
+  headerStatustitle: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    gap: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 8,
+  },
+
+  statusDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: "#00E6A2",
+  },
+
+  statusText: {
+    fontSize: 8,
+    fontWeight: "900",
+    color: "#B8D7FF",
+    letterSpacing: 0.5,
   },
 });
