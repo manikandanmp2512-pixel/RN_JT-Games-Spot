@@ -37,8 +37,11 @@ import {
 } from "@/services/chessSocket";
 import type { Difficulty, GameMode, GameModeId } from "@/types/chess";
 import { Ionicons } from "@expo/vector-icons";
+// const API_BASE = (
+//   process.env.EXPO_PUBLIC_API_URL || "http://192.168.31.214:5000"
+// ).replace(/\/+$/, "");
 const API_BASE = (
-  process.env.EXPO_PUBLIC_API_URL || "http://192.168.31.214:5000"
+  process.env.EXPO_PUBLIC_API_URL || "https://jaytech-backend-4.onrender.com"
 ).replace(/\/+$/, "");
 
 const BOARD_THEMES: BoardImageTheme[] = [
@@ -1077,6 +1080,7 @@ export default function ChessHome() {
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
+    marginTop: 30,
     backgroundColor: C.background,
   },
   container: {

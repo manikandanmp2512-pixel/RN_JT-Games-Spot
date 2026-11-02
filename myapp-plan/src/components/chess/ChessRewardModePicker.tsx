@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -14,6 +14,7 @@ import {
 } from "@/types/chessRewards";
 
 import { fetchChessRewardModes } from "@/services/chessRewardApi";
+import { getApiErrorMessage } from "@/services/chessApi";
 
 type Props = {
   selectedMode: ChessRewardModeId;
@@ -30,41 +31,34 @@ export default function ChessRewardModePicker({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  useEffect(() => {
-    let active = true;
+  const loadModes = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError("");
 
-    async function loadModes() {
-      try {
-        setLoading(true);
-        setError("");
+      const result = await fetchChessRewardModes();
 
-        const result = await fetchChessRewardModes();
-
-        if (active) {
-          setModes(result);
-        }
-      } catch (err) {
-        if (active) {
-          setError("Unable to load game modes. Please try again.");
-        }
-      } finally {
-        if (active) {
-          setLoading(false);
-        }
+      if (!Array.isArray(result)) {
+        throw new Error("Invalid reward modes response from backend.");
       }
+
+      setModes(result);
+    } catch (err) {
+      console.error("CHESS REWARD MODES ERROR:", err);
+      setError(getApiErrorMessage(err));
+    } finally {
+      setLoading(false);
     }
-
-    loadModes();
-
-    return () => {
-      active = false;
-    };
   }, []);
+
+  useEffect(() => {
+    void loadModes();
+  }, [loadModes]);
 
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator color="#F4A000" />
+        <ActivityIndicator color="#F4A000" size="large" />
         <Text style={styles.muted}>Loading game modes...</Text>
       </View>
     );
@@ -74,9 +68,34 @@ export default function ChessRewardModePicker({
     return (
       <View style={styles.center}>
         <Text style={styles.error}>{error}</Text>
+
         <Text style={styles.muted}>
           Check your backend connection and try again.
         </Text>
+
+        <Pressable
+          onPress={() => void loadModes()}
+          style={styles.retryButton}
+        >
+          <Text style={styles.retryText}>Retry</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
+  if (modes.length === 0) {
+    return (
+      <View style={styles.center}>
+        <Text style={styles.muted}>
+          No game modes are currently available.
+        </Text>
+
+        <Pressable
+          onPress={() => void loadModes()}
+          style={styles.retryButton}
+        >
+          <Text style={styles.retryText}>Refresh</Text>
+        </Pressable>
       </View>
     );
   }
@@ -84,6 +103,7 @@ export default function ChessRewardModePicker({
   return (
     <View style={styles.container}>
       <Text style={styles.heading}>Choose Online Game</Text>
+
       <Text style={styles.subtitle}>
         Select a mode to see its virtual coin rewards.
       </Text>
@@ -120,11 +140,13 @@ export default function ChessRewardModePicker({
               <View style={styles.divider} />
 
               <Text style={styles.rewardLabel}>Winner reward</Text>
+
               <Text style={styles.winnerReward}>
                 {mode.winnerCoins} coins
               </Text>
 
               <Text style={styles.rewardLabel}>Other player</Text>
+
               <Text style={styles.otherReward}>
                 {mode.loserCoins} coins
               </Text>
@@ -136,11 +158,6 @@ export default function ChessRewardModePicker({
           );
         })}
       </ScrollView>
-
-      {/* <Text style={styles.disclaimer}>
-        Virtual coins have no cash value and cannot be withdrawn or
-        transferred. Selecting a mode does not start a match.
-      </Text> */}
     </View>
   );
 }
@@ -150,6 +167,7 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingVertical: 12,
   },
+
   center: {
     minHeight: 120,
     alignItems: "center",
@@ -157,28 +175,49 @@ const styles = StyleSheet.create({
     gap: 10,
     padding: 16,
   },
+
   heading: {
     color: "#F4A000",
     fontSize: 21,
     fontWeight: "800",
   },
+
   subtitle: {
     color: "#B8C9D2",
     fontSize: 13,
   },
+
   muted: {
     color: "#B8C9D2",
     fontSize: 13,
+    textAlign: "center",
   },
+
   error: {
     color: "#FF7777",
     textAlign: "center",
   },
+
+  retryButton: {
+    backgroundColor: "#F4A000",
+    paddingHorizontal: 24,
+    paddingVertical: 10,
+    borderRadius: 10,
+    marginTop: 5,
+  },
+
+  retryText: {
+    color: "#071E2B",
+    fontSize: 14,
+    fontWeight: "800",
+  },
+
   list: {
     gap: 12,
     paddingVertical: 8,
     paddingRight: 12,
   },
+
   card: {
     alignItems: "center",
     width: 164,
@@ -190,52 +229,56 @@ const styles = StyleSheet.create({
     backgroundColor: "#0C2A3A",
     gap: 7,
   },
+
   selectedCard: {
     borderColor: "#F4A000",
     borderWidth: 2,
     backgroundColor: "#173A4B",
   },
+
   disabledCard: {
     opacity: 0.6,
   },
+
   modeName: {
     color: "#FFFFFF",
     fontSize: 18,
     fontWeight: "800",
   },
+
   entry: {
     color: "#F4A000",
     fontSize: 12,
     fontWeight: "700",
   },
+
   divider: {
     height: 1,
     backgroundColor: "#244F65",
     marginVertical: 4,
   },
+
   rewardLabel: {
     color: "#B8C9D2",
     fontSize: 11,
   },
+
   winnerReward: {
     color: "#5CE0A0",
     fontSize: 19,
     fontWeight: "800",
   },
+
   otherReward: {
     color: "#FFFFFF",
     fontSize: 15,
     fontWeight: "700",
   },
+
   selectedText: {
     color: "#F4A000",
     fontSize: 12,
     fontWeight: "800",
     marginTop: 3,
-  },
-  disclaimer: {
-    color: "#9EB1BC",
-    fontSize: 11,
-    lineHeight: 16,
   },
 });

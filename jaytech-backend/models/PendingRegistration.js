@@ -1,3 +1,4 @@
+
 const mongoose = require("mongoose");
 
 const PendingRegistrationSchema = new mongoose.Schema(
@@ -7,82 +8,52 @@ const PendingRegistrationSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
-
     lname: {
       type: String,
       required: true,
       trim: true,
     },
-
-    email: {
-      type: String,
-      required: true,
-      lowercase: true,
-      trim: true,
-    },
-
     mobilenumber: {
       type: String,
       required: true,
       trim: true,
     },
-
     countryCode: {
       type: String,
-      default: "+91",
+      required: true,
       trim: true,
     },
-
-    passwordHash: {
+    phoneE164: {
       type: String,
       required: true,
+      unique: true,
+      trim: true,
     },
-
-    emailOtpHash: {
+    otpProvider: {
       type: String,
+      enum: ["development", "twilio"],
       required: true,
     },
-
     mobileOtpHash: {
       type: String,
-      required: true,
+      default: undefined,
     },
-
-    emailOtpExpiry: {
-      type: Date,
-      required: true,
-    },
-
     mobileOtpExpiry: {
       type: Date,
       required: true,
     },
-
-    emailVerified: {
-      type: Boolean,
-      default: false,
-    },
-
-    mobileVerified: {
-      type: Boolean,
-      default: false,
+    passwordHash: {
+      type: String,
+      required: true,
     },
   },
-  {
-    timestamps: true,
-  }
+  { timestamps: true }
 );
 
-// Automatically remove abandoned registrations after 15 minutes.
+// Automatically remove expired pending registrations after 15 minutes.
 PendingRegistrationSchema.index(
   { createdAt: 1 },
   { expireAfterSeconds: 900 }
-);
-
-// One pending registration per email.
-PendingRegistrationSchema.index(
-  { email: 1 },
-  { unique: true }
 );
 
 module.exports = mongoose.model(

@@ -1,62 +1,71 @@
-
 const twilio = require("twilio");
 
-const sendSms = async ({ to, message }) => {
+let twilioClient = null;
+
+const getVerifyService = () => {
   const accountSid = process.env.TWILIO_ACCOUNT_SID?.trim();
   const authToken = process.env.TWILIO_AUTH_TOKEN?.trim();
-  const phoneNumber = process.env.TWILIO_PHONE_NUMBER?.trim();
+  const verifyServiceSid =
+    process.env.TWILIO_VERIFY_SERVICE_SID?.trim();
 
-  console.log("Twilio SID diagnostic:", {
-    present: Boolean(accountSid),
-    startsWithAC: accountSid?.startsWith("AC"),
-    length: accountSid?.length,
-    validFormat: /^AC[a-fA-F0-9]{32}$/.test(accountSid || ""),
-  });
+  const missing = [];
 
-  if (!accountSid || !authToken || !phoneNumber) {
+  if (!accountSid) missing.push("TWILIO_ACCOUNT_SID");
+  if (!authToken) missing.push("TWILIO_AUTH_TOKEN");
+  if (!verifyServiceSid) {
+    missing.push("TWILIO_VERIFY_SERVICE_SID");
+  }
+
+  if (missing.length) {
     throw new Error(
-      "Twilio configuration is missing. Check your backend .env file."
+      `Twilio Verify configuration is missing: ${missing.join(", ")}`
     );
   }
 
-  // Twilio SID = AC followed by 32 hexadecimal characters.
   if (!/^AC[a-fA-F0-9]{32}$/.test(accountSid)) {
-    throw new Error(
-      "Invalid Twilio Account SID. Check the actual SID in Twilio Console."
-    );
+    throw new Error("Invalid Twilio Account SID format.");
   }
 
-  if (!/^\+[1-9]\d{7,14}$/.test(to)) {
-    throw new Error(
-      "Recipient mobile number must use international format, e.g. +919876543210."
-    );
+  if (!/^VA[a-fA-F0-9]{32}$/.test(verifyServiceSid)) {
+    throw new Error("Invalid Twilio Verify Service SID format.");
   }
 
-  // Create the client only after credentials are declared.
-  const client = twilio(accountSid, authToken);
-
-  try {
-    const result = await client.messages.create({
-      body: message,
-      from: phoneNumber,
-      to,
-    });
-
-    console.log("Twilio message accepted:", {
-      messageSid: result.sid,
-      status: result.status,
-    });
-
-    return result;
-  } catch (error) {
-    console.error("Twilio SMS error:", {
-      code: error.code,
-      status: error.status,
-      message: error.message,
-    });
-
-    throw new Error(`Twilio SMS failed: ${error.message}`);
+  if (!twilioClient) {
+    twilioClient = twilio(accountSid, authToken);
   }
+
+  return twilioClient.verify.v2.services(verifyServiceSid);
 };
 
-module.exports = sendSms;
+const sendSms = async ({ to }) => {
+  if (!to || !/^\+[1-9]\d{7,14}$/.test(to)) {
+    throw new Error("A valid E.164 mobile number is required.");
+  }
+
+  return getVerifyService().verifications.create({
+    to,
+    channel: "sms",
+  });
+};
+
+const verifySmsOtp = async ({ to, code }) => {
+  if (!to || !/^\+[1-9]\d{7,14}$/.test(to)) {
+    throw new Error("A valid E.164 mobile number is required.");
+  }
+
+  if (!/^\d{4,10}$/.test(String(code))) {
+    return false;
+  }
+
+  const result = await getVerifyService().verificationChecks.create({
+    to,
+    code: String(code),
+  });
+
+  return result.status === "approved";
+};
+
+module.exports = {
+  sendSms,
+  verifySmsOtp,
+};

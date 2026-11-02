@@ -1,38 +1,95 @@
 import { getAuthToken } from "@/utils/authStorage";
 import axios from "axios";
 
-export const API_ROOT = "http://192.168.31.214:5000";
-// export const API_ROOT = "http://172.27.170.226:5000";
+// ============================================================
+// API CONFIGURATION
+// ============================================================
+// const API_BASE_URL =
+//   process.env.EXPO_PUBLIC_API_URL?.trim().replace(/\/+$/, "") ||
+//   "http://localhost:5000";
 
-// For Render, use:
-// export const API_ROOT = "https://jaytech-backend-4.onrender.com";
+const API_BASE_URL = (
+  process.env.EXPO_PUBLIC_API_URL?.trim() ||
+  "https://jaytech-backend-4.onrender.com"
+).replace(/\/+$/, "");
 
-export const API_URL = `${API_ROOT}/api`;
+const API_URL = API_BASE_URL.endsWith("/api")
+  ? API_BASE_URL
+  : `${API_BASE_URL}/api`;
+  
+console.log("JAYTECH API URL:", API_URL);
 
-const api = axios.create({
+export const api = axios.create({
   baseURL: API_URL,
-  timeout: 30000,
+  timeout: 45000,
+  headers: {
+    "Content-Type": "application/json",
+    Accept: "application/json",
+  },
 });
 
 // ============================================================
-// AUTH TOKEN
+// AUTHENTICATION INTERCEPTOR
 // ============================================================
 
 api.interceptors.request.use(
   async (config) => {
-    const token = await getAuthToken();
+    try {
+      const token = await getAuthToken();
 
-    if (token) {
-      config.headers = config.headers || {};
-      config.headers.Authorization = `Bearer ${token}`;
+      const isPublicAuthRequest =
+        config.url?.startsWith("/auth/");
+
+      if (token && !isPublicAuthRequest) {
+        config.headers = config.headers || {};
+        config.headers.Authorization = `Bearer ${token}`;
+      }
+
+      return config;
+    } catch (error) {
+      console.error("AUTH TOKEN ERROR:", error);
+      return config;
+    }
+  },
+  (error) => Promise.reject(error)
+);
+
+// ============================================================
+// API ERROR MESSAGE
+// ============================================================
+
+export const getApiErrorMessage = (error: unknown): string => {
+  if (axios.isAxiosError(error)) {
+    const data = error.response?.data;
+
+    if (typeof data?.message === "string") {
+      return data.message;
     }
 
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
+    if (typeof data?.error === "string") {
+      return data.error;
+    }
+
+    if (!error.response) {
+      return "Cannot connect to the backend. Check the API URL and server.";
+    }
+
+    return error.message || "Request failed.";
   }
-);
+
+  return error instanceof Error
+    ? error.message
+    : "Something went wrong.";
+};
+
+// ============================================================
+// MOBILE AUTH DATA
+// ============================================================
+
+export type MobileAuthData = {
+  countryCode: string;
+  mobilenumber: string;
+};
 
 // ============================================================
 // REGISTER
@@ -41,29 +98,22 @@ api.interceptors.request.use(
 export const registerUser = async (data: {
   fname: string;
   lname: string;
-  email: string;
   countryCode: string;
   mobilenumber: string;
   password: string;
   confirmPassword: string;
 }) => {
-  const response = await api.post(
-    "/auth/register",
-    data
-  );
-
+  const response = await api.post("/auth/register", data);
   return response.data;
 };
 
 // ============================================================
-// VERIFY REGISTER OTPs
+// VERIFY REGISTER OTP
 // ============================================================
 
-export const verifyRegisterOtp = async (data: {
-  email: string;
-  emailOtp: string;
-  mobileOtp: string;
-}) => {
+export const verifyRegisterOtp = async (
+  data: MobileAuthData & { mobileOtp: string }
+) => {
   const response = await api.post(
     "/auth/verify-register-otp",
     data
@@ -77,29 +127,24 @@ export const verifyRegisterOtp = async (data: {
 // ============================================================
 
 export const loginUser = async (data: {
-  email: string;
+  countryCode: string;
+  mobilenumber: string;
   password: string;
 }) => {
-  const response = await api.post(
-    "/auth/login",
-    data
-  );
-
+  const response = await api.post("/auth/login", data);
   return response.data;
 };
 
 // ============================================================
-// FORGOT PASSWORD
+// FORGOT PASSWORD OTP
 // ============================================================
 
-export const sendForgotOtp = async (
-  email: string
+export const sendForgotPasswordOtp = async (
+  data: MobileAuthData
 ) => {
   const response = await api.post(
     "/auth/forgot-password",
-    {
-      email,
-    }
+    data
   );
 
   return response.data;
@@ -110,15 +155,11 @@ export const sendForgotOtp = async (
 // ============================================================
 
 export const verifyForgotOtp = async (
-  email: string,
-  otp: string
+  data: MobileAuthData & { otp: string }
 ) => {
   const response = await api.post(
     "/auth/verify-forgot-otp",
-    {
-      email,
-      otp,
-    }
+    data
   );
 
   return response.data;
@@ -129,15 +170,11 @@ export const verifyForgotOtp = async (
 // ============================================================
 
 export const resetPassword = async (
-  email: string,
-  password: string
+  data: MobileAuthData & { password: string }
 ) => {
   const response = await api.post(
     "/auth/reset-password",
-    {
-      email,
-      password,
-    }
+    data
   );
 
   return response.data;

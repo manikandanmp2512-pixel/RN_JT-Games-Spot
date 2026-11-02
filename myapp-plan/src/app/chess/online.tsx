@@ -23,9 +23,9 @@ import { calculateStatsFromGame } from "@/utils/chessGameStats";
 
 import ChessRewardModePicker from "@/components/chess/ChessRewardModePicker";
 
-import { ChessRewardMode, ChessRewardModeId } from "@/types/chessRewards";
 import type { ChessPieceSet } from "@/components/chess/ChessBoard";
 import { CHESS_PIECE_SET_STORAGE_KEY } from "@/components/chess/ChessBoard";
+import { ChessRewardMode, ChessRewardModeId } from "@/types/chessRewards";
 
 import ChessBoard, {
   type BoardImageTheme,
@@ -34,7 +34,7 @@ import ChessGameSettings, {
   useChessSettings,
 } from "@/components/chess/ChessGameSettings";
 import { playChessMoveSound } from "@/components/chess/chessSound";
-// import { showGameCompletionAd } from "@/services/chessAds";
+import { showGameCompletionAd } from "@/services/chessAds";
 import {
   ChessColor,
   ClockState,
@@ -3852,7 +3852,7 @@ import {
             }}
 
             onNewGame={() => {
-              // void showGameCompletionAd();
+              void showGameCompletionAd();
               if (resultModalTimerRef.current) {
                 clearTimeout(resultModalTimerRef.current);
                 resultModalTimerRef.current = null;

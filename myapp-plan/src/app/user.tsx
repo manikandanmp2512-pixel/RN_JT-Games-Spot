@@ -307,6 +307,7 @@ export default function UserScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
+    marginTop: 30, 
   },
 
   navContainer: {

@@ -1,3 +1,4 @@
+
 const mongoose = require("mongoose");
 
 const UserSchema = new mongoose.Schema(
@@ -7,19 +8,19 @@ const UserSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
-
     lname: {
       type: String,
       required: true,
       trim: true,
     },
 
+    // Optional legacy field. New authentication does not use email.
     email: {
       type: String,
-      required: true,
-      unique: true,
       lowercase: true,
       trim: true,
+      sparse: true,
+      unique: true,
     },
 
     mobilenumber: {
@@ -27,10 +28,15 @@ const UserSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
-
     countryCode: {
       type: String,
       default: "+91",
+      trim: true,
+    },
+    phoneE164: {
+      type: String,
+      required: true,
+      unique: true,
       trim: true,
     },
 
@@ -39,36 +45,27 @@ const UserSchema = new mongoose.Schema(
       required: true,
       minlength: 6,
     },
-
     role: {
       type: String,
-      enum: [
-        "user",
-        "admin",
-      ],
+      enum: ["user", "admin"],
       default: "user",
     },
-
     rating: {
       type: Number,
       default: 100,
     },
-
     gems: {
       type: Number,
       default: 0,
     },
-
     randomAvatar: {
       type: String,
       default: "🦊",
     },
-
     profilePhoto: {
       type: String,
       default: null,
     },
-
     friends: [
       {
         type: mongoose.Schema.Types.ObjectId,
@@ -76,35 +73,21 @@ const UserSchema = new mongoose.Schema(
       },
     ],
 
-    registerOtpHash:
-      String,
-
-    registerOtpExpiry:
-      Date,
-
+    registerOtpHash: String,
+    registerOtpExpiry: Date,
     registerOtpVerified: {
       type: Boolean,
       default: false,
     },
 
-    forgotOtpHash:
-      String,
-
-    forgotOtpExpiry:
-      Date,
-
+    forgotOtpHash: String,
+    forgotOtpExpiry: Date,
     forgotOtpVerified: {
       type: Boolean,
       default: false,
     },
   },
-  {
-    timestamps: true,
-  }
+  { timestamps: true }
 );
 
-module.exports =
-  mongoose.model(
-    "User",
-    UserSchema
-  );
+module.exports = mongoose.model("User", UserSchema);

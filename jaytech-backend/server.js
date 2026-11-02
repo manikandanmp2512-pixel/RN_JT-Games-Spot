@@ -18,6 +18,7 @@ const mobileOtpRoutes = require("./routes/mobileOtpRoutes");
 const { setupChessSocket } = require("./socket/chessSocket");
 
 const app = express();
+
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: "*", methods: ["GET", "POST"] } });
 
@@ -32,6 +33,7 @@ app.use(cors({ origin: "*", methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
 app.use(express.json({ limit: "2mb" }));
 app.use(express.urlencoded({ extended: true }));
 
+app.use(express.json());
 
 //  Static uploads
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
@@ -56,6 +58,10 @@ setupChessSocket(io, app);
 
 //  404 handler
 app.use((req, res) => res.status(404).json({ success: true, message: "JayTech API running" }));
+
+app.get("/", (req, res) => {
+  res.send("JayTech API running");
+});
 
 //  Server
 const PORT = process.env.PORT || 5000;

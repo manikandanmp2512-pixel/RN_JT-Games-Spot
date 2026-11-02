@@ -347,7 +347,7 @@ export default function Index() {
                       />
                     </LinearGradient>
 
-                    <Text style={styles.competeHeading}>COMPETE</Text>
+                    <Text style={styles.competeHeading}>COMPLETE</Text>
 
                     <Text style={styles.featureDescription}>
                       Improve and{"\n"}celebrate wins
@@ -404,9 +404,9 @@ export default function Index() {
               </Text>
             </Text>
 
-            <Text style={styles.footerCaption}>
+            {/* <Text style={styles.footerCaption}>
               BUILT WITH PASSION {"  "}•{"  "} MADE FOR GAMERS
-            </Text>
+            </Text> */}
           </View>
         </ScrollView>
       </View>
@@ -421,6 +421,7 @@ export default function Index() {
 const styles = StyleSheet.create({
   background: {
     flex: 1,
+    marginTop: 30,
     backgroundColor: "#020817",
   },
 

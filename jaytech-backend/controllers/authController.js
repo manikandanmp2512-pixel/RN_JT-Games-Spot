@@ -1,3 +1,4 @@
+
 const bcrypt = require("bcryptjs");
 const crypto = require("crypto");
 
@@ -5,429 +6,278 @@ const User = require("../models/User");
 const PendingRegistration = require("../models/PendingRegistration");
 
 const generateToken = require("../utils/generateToken");
-const sendEmail = require("../utils/sendEmail");
-const sendSms = require("../utils/sendSms");
 
-// ============================================================
-// HELPERS
-// ============================================================
+const {
+  sendSms,
+  verifySmsOtp,
+} = require("../utils/sendSms");
+
+const {
+  parsePhoneNumberFromString,
+} = require("libphonenumber-js");
+
+/* -------------------------------------------------------------------------- */
+/* HELPERS                                                                    */
+/* -------------------------------------------------------------------------- */
 
 const hashOtp = (otp) =>
-  crypto
-    .createHash("sha256")
-    .update(String(otp))
-    .digest("hex");
+  crypto.createHash("sha256").update(String(otp)).digest("hex");
 
 const generateOtp = () =>
-  String(
-    Math.floor(
-      100000 + Math.random() * 900000
-    )
-  );
+  crypto.randomInt(100000, 1000000).toString();
 
-const publicUser = (u) => ({
-  id: u._id,
-  _id: u._id,
-  fname: u.fname,
-  lname: u.lname,
-  email: u.email,
-  mobilenumber: u.mobilenumber,
-  countryCode: u.countryCode,
-  role: u.role,
-  rating: u.rating,
-  gems: u.gems,
-  randomAvatar: u.randomAvatar,
-  profilePhoto: u.profilePhoto,
+const isDevelopmentOtpEnabled = () =>
+  process.env.NODE_ENV === "development" &&
+  process.env.ENABLE_DEV_REGISTRATION_OTP === "true";
+
+const normalizePhone = (countryCode, mobilenumber) => {
+  const fullNumber = `${String(countryCode || "").trim()}${String(
+    mobilenumber || ""
+  ).trim()}`;
+
+  const phone = parsePhoneNumberFromString(fullNumber);
+
+  if (!phone || !phone.isValid()) {
+    return null;
+  }
+
+  return {
+    countryCode: `+${phone.countryCallingCode}`,
+    mobilenumber: phone.nationalNumber,
+    phoneE164: phone.number,
+  };
+};
+
+const publicUser = (user) => ({
+  id: user._id,
+  _id: user._id,
+  fname: user.fname,
+  lname: user.lname,
+  mobilenumber: user.mobilenumber,
+  countryCode: user.countryCode,
+  role: user.role,
+  rating: user.rating,
+  gems: user.gems,
+  randomAvatar: user.randomAvatar,
+  profilePhoto: user.profilePhoto,
 });
 
-// ============================================================
-// REGISTER
-// ============================================================
+/* -------------------------------------------------------------------------- */
+/* REGISTER — MOBILE NUMBER + SMS OTP                                         */
+/* -------------------------------------------------------------------------- */
 
 exports.register = async (req, res) => {
+  let pendingId = null;
+
   try {
     const {
       fname,
       lname,
-      email,
       mobilenumber,
       countryCode = "+91",
       password,
       confirmPassword,
     } = req.body;
 
-    // ----------------------------------------------------------
-    // REQUIRED FIELDS
-    // ----------------------------------------------------------
-
     if (
       !fname ||
       !lname ||
-      !email ||
       !mobilenumber ||
       !password ||
       !confirmPassword
     ) {
       return res.status(400).json({
         success: false,
-        message: "All fields are required",
+        message: "All fields are required.",
       });
     }
 
-    // ----------------------------------------------------------
-    // NORMALIZE
-    // ----------------------------------------------------------
-
-    const normalizedFname =
-      String(fname).trim();
-
-    const normalizedLname =
-      String(lname).trim();
-
-    const normalizedEmail =
-      String(email)
-        .trim()
-        .toLowerCase();
-
-    const normalizedMobile =
-      String(mobilenumber).trim();
-
-    const normalizedCountryCode =
-      String(countryCode).trim();
-
-    // ----------------------------------------------------------
-    // NAME VALIDATION
-    // ----------------------------------------------------------
+    const normalizedFname = String(fname).trim();
+    const normalizedLname = String(lname).trim();
 
     if (!/^[A-Za-z]{2,30}$/.test(normalizedFname)) {
       return res.status(400).json({
         success: false,
-        message:
-          "First name must contain only letters and be 2-30 characters",
+        message: "First name must contain 2–30 letters.",
       });
     }
 
-    if (!/^[A-Z]{1,2}$/.test(normalizedLname)) {
+    if (!/^[A-Za-z]{1,30}$/.test(normalizedLname)) {
+      return res.status(400).json({
+        success: false,
+        message: "Last name must contain 1–30 letters.",
+      });
+    }
+
+    const phone = normalizePhone(countryCode, mobilenumber);
+
+    if (!phone) {
+      return res.status(400).json({
+        success: false,
+        message: "Please enter a valid international mobile number.",
+      });
+    }
+
+    if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{6,}$/.test(password)) {
       return res.status(400).json({
         success: false,
         message:
-          "Last name must contain only letters and be 2-30 characters",
-      });
-    }
-
-    // ----------------------------------------------------------
-    // EMAIL
-    // ----------------------------------------------------------
-
-    const emailRegex =
-      /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
-
-    if (!emailRegex.test(normalizedEmail)) {
-      return res.status(400).json({
-        success: false,
-        message: "Please enter a valid email address",
-      });
-    }
-
-    // ----------------------------------------------------------
-    // COUNTRY CODE
-    // ----------------------------------------------------------
-
-    if (!/^\+[1-9]\d{0,2}$/.test(normalizedCountryCode)) {
-      return res.status(400).json({
-        success: false,
-        message: "Invalid country code",
-      });
-    }
-
-    // ----------------------------------------------------------
-    // MOBILE
-    // ----------------------------------------------------------
-
-    if (!/^[6-9]\d{9}$/.test(normalizedMobile)) {
-      return res.status(400).json({
-        success: false,
-        message:
-          "Mobile number must contain a valid 10-digit Indian number",
-      });
-    }
-
-    // ----------------------------------------------------------
-    // PASSWORD
-    // ----------------------------------------------------------
-
-    const passwordRegex =
-      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{6,}$/;
-
-    if (!passwordRegex.test(password)) {
-      return res.status(400).json({
-        success: false,
-        message:
-          "Password must contain at least 6 characters, uppercase, lowercase and number",
+          "Password must contain at least 6 characters, uppercase, lowercase and a number.",
       });
     }
 
     if (password !== confirmPassword) {
       return res.status(400).json({
         success: false,
-        message: "Passwords do not match",
+        message: "Passwords do not match.",
       });
     }
 
-    // ----------------------------------------------------------
-    // CHECK EXISTING USER
-    // ----------------------------------------------------------
-
     const existingUser = await User.findOne({
-      $or: [
-        {
-          email: normalizedEmail,
-        },
-        {
-          mobilenumber: normalizedMobile,
-        },
-      ],
+      mobilenumber: phone.mobilenumber,
+      countryCode: phone.countryCode,
     });
 
     if (existingUser) {
-      if (
-        existingUser.email ===
-        normalizedEmail
-      ) {
-        return res.status(409).json({
-          success: false,
-          message:
-            "This email is already registered",
-        });
-      }
-
       return res.status(409).json({
         success: false,
-        message:
-          "This mobile number is already registered",
+        message: "This mobile number is already registered.",
       });
     }
-
-    // ----------------------------------------------------------
-    // REMOVE OLD PENDING REGISTRATION
-    // ----------------------------------------------------------
 
     await PendingRegistration.deleteOne({
-      email: normalizedEmail,
+      mobilenumber: phone.mobilenumber,
+      countryCode: phone.countryCode,
     });
 
-    // ----------------------------------------------------------
-    // GENERATE TWO OTPs
-    // ----------------------------------------------------------
+    const passwordHash = await bcrypt.hash(password, 10);
+    const developmentOtp = generateOtp();
 
-    const emailOtp = generateOtp();
-    const mobileOtp = generateOtp();
+    const otpProvider = isDevelopmentOtpEnabled()
+      ? "development"
+      : "twilio";
 
-    // ----------------------------------------------------------
-    // HASH PASSWORD
-    // ----------------------------------------------------------
-
-    const passwordHash =
-      await bcrypt.hash(password, 10);
-
-    // ----------------------------------------------------------
-    // CREATE TEMPORARY REGISTRATION
-    // ----------------------------------------------------------
-
-    await PendingRegistration.create({
+    const pending = await PendingRegistration.create({
       fname: normalizedFname,
       lname: normalizedLname,
-      email: normalizedEmail,
-      mobilenumber: normalizedMobile,
-      countryCode: normalizedCountryCode,
-
+      mobilenumber: phone.mobilenumber,
+      countryCode: phone.countryCode,
+      phoneE164: phone.phoneE164,
       passwordHash,
-
-      emailOtpHash: hashOtp(emailOtp),
-      mobileOtpHash: hashOtp(mobileOtp),
-
-      emailOtpExpiry: new Date(
-        Date.now() + 10 * 60 * 1000
-      ),
-
-      mobileOtpExpiry: new Date(
-        Date.now() + 10 * 60 * 1000
-      ),
-
-      emailVerified: false,
-      mobileVerified: false,
+      otpProvider,
+      mobileOtpHash: hashOtp(developmentOtp),
+      mobileOtpExpiry: new Date(Date.now() + 10 * 60 * 1000),
     });
 
-    // ----------------------------------------------------------
-    // SEND EMAIL OTP
-    // ----------------------------------------------------------
+    pendingId = pending._id;
 
-    try {
-      await sendEmail({
-        to: normalizedEmail,
-
-        subject: "JayTech Email Verification OTP",
-
-        text: `Your JayTech registration OTP is ${emailOtp}.\n\n` + `This OTP will expire in 10 minutes.\n\n` + `Do not share this OTP with anyone.`,
-      });
-    } catch (emailError) {
-      console.error(
-        "EMAIL OTP ERROR:",
-        emailError
-      );
-
-      await PendingRegistration.deleteOne({
-        email: normalizedEmail,
-      });
-
-      return res.status(500).json({
-        success: false,
-        message:
-          "Unable to send email OTP. Please check the email service configuration.",
+    if (isDevelopmentOtpEnabled()) {
+      return res.status(201).json({
+        success: true,
+        message: "Development OTP generated. SMS was not sent.",
+        mobile: phone.phoneE164,
+        mobileOtpSent: false,
+        developmentOtp,
+        developmentOnly: true,
       });
     }
-
-    // ----------------------------------------------------------
-    // SEND MOBILE OTP
-    // ----------------------------------------------------------
 
     try {
       await sendSms({
-        to:
-          `${normalizedCountryCode}${normalizedMobile}`,
-
-        message:
-          `Your JayTech registration OTP is ${mobileOtp}. It expires in 10 minutes.`,
+        to: phone.phoneE164,
       });
     } catch (smsError) {
-      console.error(
-        "MOBILE OTP ERROR:",
-        smsError
-      );
-
-      await PendingRegistration.deleteOne({
-        email: normalizedEmail,
+      console.error("REGISTRATION SMS ERROR:", {
+        code: smsError.code,
+        status: smsError.status,
+        message: smsError.message,
       });
 
-      return res.status(500).json({
-        success: false,
-        message:
-          "Unable to send mobile OTP. Please check the SMS service configuration.",
-      });
-    }
-
-    // ----------------------------------------------------------
-    // SUCCESS
-    // ----------------------------------------------------------
-
-    return res.status(201).json({
-      success: true,
-
-      message:
-        "OTP sent to your email and mobile number.",
-
-      email: normalizedEmail,
-
-      mobile:
-        `${normalizedCountryCode}${normalizedMobile}`,
-
-      emailOtpSent: true,
-
-      mobileOtpSent: true,
-    });
-  } catch (error) {
-    console.error(
-      "REGISTER ERROR:",
-      error
-    );
-
-    return res.status(500).json({
-      success: false,
-      message:
-        error.message ||
-        "Registration failed",
-    });
-  }
-};
-
-// ============================================================
-// VERIFY REGISTER OTP
-// ============================================================
-
-exports.verifyRegisterOtp = async (
-  req,
-  res
-) => {
-  try {
-    const {
-      email,
-      emailOtp,
-      mobileOtp,
-    } = req.body;
-
-    // ----------------------------------------------------------
-    // VALIDATE
-    // ----------------------------------------------------------
-
-    if (!email) {
-      return res.status(400).json({
-        success: false,
-        message: "Email is required",
-      });
-    }
-
-    if (!emailOtp || !mobileOtp) {
-      return res.status(400).json({
-        success: false,
-        message:
-          "Both email OTP and mobile OTP are required",
-      });
-    }
-
-    const normalizedEmail =
-      String(email)
-        .trim()
-        .toLowerCase();
-
-    // ----------------------------------------------------------
-    // FIND PENDING REGISTRATION
-    // ----------------------------------------------------------
-
-    const pending =
-      await PendingRegistration.findOne({
-        email: normalizedEmail,
-      });
-
-    if (!pending) {
-      return res.status(404).json({
-        success: false,
-        message:
-          "Registration session expired. Please register again.",
-      });
-    }
-
-    // ----------------------------------------------------------
-    // EMAIL OTP EXPIRY
-    // ----------------------------------------------------------
-
-    if (
-      !pending.emailOtpExpiry ||
-      pending.emailOtpExpiry < new Date()
-    ) {
       await PendingRegistration.deleteOne({
         _id: pending._id,
       });
 
-      return res.status(400).json({
+      pendingId = null;
+
+      return res.status(502).json({
         success: false,
         message:
-          "Email OTP expired. Please register again.",
+          "Unable to send mobile OTP. Please check your SMS provider configuration and destination-country permissions.",
       });
     }
 
-    // ----------------------------------------------------------
-    // MOBILE OTP EXPIRY
-    // ----------------------------------------------------------
+    return res.status(201).json({
+      success: true,
+      message: "Mobile OTP sent successfully.",
+      mobile: phone.phoneE164,
+      mobileOtpSent: true,
+    });
+  } catch (error) {
+    console.error("REGISTER ERROR:", {
+      message: error.message,
+      code: error.code,
+    });
+
+    if (pendingId) {
+      await PendingRegistration.deleteOne({
+        _id: pendingId,
+      }).catch(() => {});
+    }
+
+    return res.status(500).json({
+      success: false,
+      message: "Registration failed. Please try again.",
+    });
+  }
+};
+
+/* -------------------------------------------------------------------------- */
+/* VERIFY REGISTRATION SMS OTP                                                */
+/* -------------------------------------------------------------------------- */
+
+exports.verifySmsOtp = async (req, res) => {
+  try {
+    const {
+      mobilenumber,
+      countryCode = "+91",
+      mobileOtp,
+    } = req.body;
+
+    if (!mobilenumber || !mobileOtp) {
+      return res.status(400).json({
+        success: false,
+        message: "Mobile number and OTP are required.",
+      });
+    }
+
+    const phone = normalizePhone(countryCode, mobilenumber);
+
+    if (!phone) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid mobile number.",
+      });
+    }
+
+    const normalizedOtp = String(mobileOtp).trim();
+
+    if (!/^\d{6}$/.test(normalizedOtp)) {
+      return res.status(400).json({
+        success: false,
+        message: "Enter a valid 6-digit OTP.",
+      });
+    }
+
+    const pending = await PendingRegistration.findOne({
+      phoneE164: phone.phoneE164,
+    });
+
+    if (!pending) {
+      return res.status(404).json({
+        success: false,
+        message: "Registration session expired. Please register again.",
+      });
+    }
 
     if (
       !pending.mobileOtpExpiry ||
@@ -439,64 +289,46 @@ exports.verifyRegisterOtp = async (
 
       return res.status(400).json({
         success: false,
-        message:
-          "Mobile OTP expired. Please register again.",
+        message: "Mobile OTP expired. Please register again.",
       });
     }
 
-    // ----------------------------------------------------------
-    // VERIFY EMAIL OTP
-    // ----------------------------------------------------------
+    let otpIsValid = false;
 
-    const emailHash =
-      hashOtp(emailOtp);
+    if (pending.otpProvider === "development") {
+      otpIsValid =
+        hashOtp(normalizedOtp) === pending.mobileOtpHash;
+    } else {
+      try {
+        otpIsValid = await verifySmsOtp({
+          to: phone.phoneE164,
+          code: normalizedOtp,
+        });
+      } catch (verifyError) {
+        console.error("REGISTRATION OTP VERIFY ERROR:", {
+          code: verifyError.code,
+          status: verifyError.status,
+          message: verifyError.message,
+        });
 
-    if (
-      emailHash !==
-      pending.emailOtpHash
-    ) {
+        return res.status(502).json({
+          success: false,
+          message: "Unable to verify OTP with the SMS provider.",
+        });
+      }
+    }
+
+    if (!otpIsValid) {
       return res.status(400).json({
         success: false,
-        message:
-          "Invalid email OTP",
+        message: "Invalid mobile OTP.",
       });
     }
 
-    // ----------------------------------------------------------
-    // VERIFY MOBILE OTP
-    // ----------------------------------------------------------
-
-    const mobileHash =
-      hashOtp(mobileOtp);
-
-    if (
-      mobileHash !==
-      pending.mobileOtpHash
-    ) {
-      return res.status(400).json({
-        success: false,
-        message:
-          "Invalid mobile OTP",
-      });
-    }
-
-    // ----------------------------------------------------------
-    // BOTH OTPs VERIFIED
-    // ----------------------------------------------------------
-
-    // Check again before creating the real account.
-    const existingUser =
-      await User.findOne({
-        $or: [
-          {
-            email: normalizedEmail,
-          },
-          {
-            mobilenumber:
-              pending.mobilenumber,
-          },
-        ],
-      });
+    const existingUser = await User.findOne({
+      mobilenumber: pending.mobilenumber,
+      countryCode: pending.countryCode,
+    });
 
     if (existingUser) {
       await PendingRegistration.deleteOne({
@@ -505,238 +337,226 @@ exports.verifyRegisterOtp = async (
 
       return res.status(409).json({
         success: false,
-        message:
-          "Email or mobile number is already registered",
+        message: "This mobile number is already registered.",
       });
     }
 
-    // ----------------------------------------------------------
-    // CREATE REAL USER ONLY NOW
-    // ----------------------------------------------------------
-
-    const user =
-      await User.create({
-        fname: pending.fname,
-        lname: pending.lname,
-        email: pending.email,
-        mobilenumber:
-          pending.mobilenumber,
-        countryCode:
-          pending.countryCode,
-
-        password:
-          pending.passwordHash,
-
-        role: "user",
-
-        rating: 1200,
-
-        gems: 0,
-
-        registerOtpVerified: true,
-      });
-
-    // ----------------------------------------------------------
-    // DELETE TEMPORARY REGISTRATION
-    // ----------------------------------------------------------
+    const user = await User.create({
+      fname: pending.fname,
+      lname: pending.lname,
+      mobilenumber: pending.mobilenumber,
+      countryCode: pending.countryCode,
+      phoneE164: pending.phoneE164,
+      password: pending.passwordHash,
+      role: "user",
+      registerOtpVerified: true,
+    });
 
     await PendingRegistration.deleteOne({
       _id: pending._id,
     });
 
-    // ----------------------------------------------------------
-    // JWT
-    // ----------------------------------------------------------
-
-    const token =
-      generateToken(user);
-
-    // ----------------------------------------------------------
-    // RESPONSE
-    // ----------------------------------------------------------
-
     return res.status(201).json({
       success: true,
-
-      message:
-        "Registration completed successfully",
-
-      token,
-
-      user: publicUser(user),
-    });
-  } catch (error) {
-    console.error(
-      "VERIFY REGISTER OTP ERROR:",
-      error
-    );
-
-    return res.status(500).json({
-      success: false,
-      message:
-        error.message ||
-        "OTP verification failed",
-    });
-  }
-};
-
-// ============================================================
-// LOGIN
-// ============================================================
-
-exports.login = async (req, res) => {
-  try {
-    const {
-      email,
-      password,
-    } = req.body;
-
-    if (!email || !password) {
-      return res.status(400).json({
-        success: false,
-        message:
-          "Email and password are required",
-      });
-    }
-
-    const normalizedEmail =
-      String(email)
-        .trim()
-        .toLowerCase();
-
-    const user =
-      await User.findOne({
-        email: normalizedEmail,
-      });
-
-    if (
-      !user ||
-      !(await bcrypt.compare(
-        password,
-        user.password
-      ))
-    ) {
-      return res.status(401).json({
-        success: false,
-        message:
-          "Invalid email or password",
-      });
-    }
-
-    return res.json({
-      success: true,
-      message: "Login successful",
+      message: "Registration completed successfully.",
       token: generateToken(user),
       user: publicUser(user),
     });
   } catch (error) {
-    console.error(
-      "LOGIN ERROR:",
-      error
-    );
+    console.error("VERIFY REGISTER OTP ERROR:", {
+      message: error.message,
+      code: error.code,
+    });
 
     return res.status(500).json({
       success: false,
-      message: "Login failed",
+      message: "OTP verification failed. Please try again.",
     });
   }
 };
 
-// ============================================================
-// FORGOT PASSWORD - SEND OTP
-// ============================================================
+/* -------------------------------------------------------------------------- */
+/* LOGIN — MOBILE NUMBER + PASSWORD                                           */
+/* -------------------------------------------------------------------------- */
 
-exports.sendForgotOtp = async (
-  req,
-  res
-) => {
+exports.login = async (req, res) => {
   try {
-    const email =
-      String(req.body.email)
-        .trim()
-        .toLowerCase();
+    const {
+      mobilenumber,
+      countryCode = "+91",
+      password,
+    } = req.body;
 
-    const user =
-      await User.findOne({ email });
-
-    if (!user) {
-      return res.status(404).json({
+    if (!mobilenumber || !password) {
+      return res.status(400).json({
         success: false,
-        message: "Email not found",
+        message: "Mobile number and password are required.",
       });
     }
 
-    const otp =
-      generateOtp();
+    const phone = normalizePhone(countryCode, mobilenumber);
 
-    user.forgotOtpHash =
-      hashOtp(otp);
+    if (!phone) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid mobile number.",
+      });
+    }
 
-    user.forgotOtpExpiry =
-      new Date(
-        Date.now() +
-        10 * 60 * 1000
-      );
-
-    user.forgotOtpVerified =
-      false;
-
-    await user.save();
-
-    await sendEmail({
-      to: email,
-
-      subject:
-        "JayTech Password Reset OTP",
-
-      text:
-        `Your JayTech password reset OTP is ${otp}.\n\n` +
-        `It expires in 10 minutes.`,
+    const user = await User.findOne({
+      phoneE164: phone.phoneE164,
     });
+
+    if (!user || !(await bcrypt.compare(password, user.password))) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid mobile number or password.",
+      });
+    }
 
     return res.json({
       success: true,
-      message: "OTP sent",
+      message: "Login successful.",
+      token: generateToken(user),
+      user: publicUser(user),
     });
   } catch (error) {
-    console.error(
-      "FORGOT OTP ERROR:",
-      error
-    );
+    console.error("LOGIN ERROR:", error.message);
 
     return res.status(500).json({
       success: false,
-      message:
-        "Unable to send OTP",
+      message: "Login failed.",
     });
   }
 };
 
-// ============================================================
-// VERIFY FORGOT OTP
-// ============================================================
+/* -------------------------------------------------------------------------- */
+/* FORGOT PASSWORD — SEND SMS OTP                                             */
+/* -------------------------------------------------------------------------- */
 
-exports.verifyForgotOtp = async (
-  req,
-  res
-) => {
+exports.sendForgotOtp = async (req, res) => {
   try {
-    const email =
-      String(req.body.email)
-        .trim()
-        .toLowerCase();
-
     const {
+      mobilenumber,
+      countryCode = "+91",
+    } = req.body;
+
+    if (!mobilenumber) {
+      return res.status(400).json({
+        success: false,
+        message: "Mobile number is required.",
+      });
+    }
+
+    const phone = normalizePhone(countryCode, mobilenumber);
+
+    if (!phone) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid mobile number.",
+      });
+    }
+
+    const user = await User.findOne({
+      phoneE164: phone.phoneE164,
+    });
+
+    // Use the same response whether or not the number is registered.
+    if (!user) {
+      return res.json({
+        success: true,
+        message:
+          "If this mobile number is registered, a password reset OTP will be sent.",
+      });
+    }
+
+    user.forgotOtpHash = undefined;
+    user.forgotOtpExpiry = new Date(Date.now() + 10 * 60 * 1000);
+    user.forgotOtpVerified = false;
+
+    await user.save();
+
+    try {
+      await sendSms({
+        to: phone.phoneE164,
+      });
+    } catch (smsError) {
+      user.forgotOtpExpiry = undefined;
+      await user.save();
+
+      console.error("FORGOT PASSWORD SMS ERROR:", {
+        code: smsError.code,
+        status: smsError.status,
+        message: smsError.message,
+      });
+
+      return res.status(502).json({
+        success: false,
+        message: "Unable to send password reset OTP.",
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: "Password reset OTP sent to your mobile number.",
+      mobile: phone.phoneE164,
+    });
+  } catch (error) {
+    console.error("FORGOT OTP ERROR:", error.message);
+
+    return res.status(500).json({
+      success: false,
+      message: "Unable to send password reset OTP.",
+    });
+  }
+};
+
+/* -------------------------------------------------------------------------- */
+/* VERIFY FORGOT PASSWORD SMS OTP                                             */
+/* -------------------------------------------------------------------------- */
+
+exports.verifyForgotOtp = async (req, res) => {
+  try {
+    const {
+      mobilenumber,
+      countryCode = "+91",
       otp,
     } = req.body;
 
-    const user =
-      await User.findOne({ email });
+    if (!mobilenumber || !otp) {
+      return res.status(400).json({
+        success: false,
+        message: "Mobile number and OTP are required.",
+      });
+    }
+
+    const phone = normalizePhone(countryCode, mobilenumber);
+
+    if (!phone) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid mobile number.",
+      });
+    }
+
+    const normalizedOtp = String(otp).trim();
+
+    if (!/^\d{6}$/.test(normalizedOtp)) {
+      return res.status(400).json({
+        success: false,
+        message: "Enter a valid 6-digit OTP.",
+      });
+    }
+
+    const user = await User.findOne({
+      mobilenumber: phone.mobilenumber,
+      countryCode: phone.countryCode,
+    });
 
     if (!user) {
-      return res.status(404).json({
+      return res.status(400).json({
         success: false,
-        message: "Email not found",
+        message: "Invalid mobile number or OTP.",
       });
     }
 
@@ -746,120 +566,124 @@ exports.verifyForgotOtp = async (
     ) {
       return res.status(400).json({
         success: false,
-        message: "OTP expired",
+        message: "OTP expired. Please request a new OTP.",
       });
     }
 
-    if (
-      hashOtp(otp) !==
-      user.forgotOtpHash
-    ) {
+    let otpIsValid = false;
+
+    try {
+      otpIsValid = await verifySmsOtp({
+        to: phone.phoneE164,
+        code: normalizedOtp,
+      });
+    } catch (verifyError) {
+      console.error("FORGOT OTP VERIFY ERROR:", {
+        code: verifyError.code,
+        status: verifyError.status,
+        message: verifyError.message,
+      });
+
+      return res.status(502).json({
+        success: false,
+        message: "Unable to verify OTP with the SMS provider.",
+      });
+    }
+
+    if (!otpIsValid) {
       return res.status(400).json({
         success: false,
-        message: "Invalid OTP",
+        message: "Invalid OTP.",
       });
     }
 
-    user.forgotOtpVerified =
-      true;
-
+    user.forgotOtpVerified = true;
     await user.save();
 
     return res.json({
       success: true,
-      message: "OTP verified",
+      message: "OTP verified successfully.",
     });
   } catch (error) {
-    console.error(
-      "VERIFY FORGOT OTP ERROR:",
-      error
-    );
+    console.error("VERIFY FORGOT OTP ERROR:", error.message);
 
     return res.status(500).json({
       success: false,
-      message:
-        "OTP verification failed",
+      message: "OTP verification failed.",
     });
   }
 };
 
-// ============================================================
-// RESET PASSWORD
-// ============================================================
+/* -------------------------------------------------------------------------- */
+/* RESET PASSWORD                                                             */
+/* -------------------------------------------------------------------------- */
 
-exports.resetPassword = async (
-  req,
-  res
-) => {
+exports.resetPassword = async (req, res) => {
   try {
-    const email =
-      String(req.body.email)
-        .trim()
-        .toLowerCase();
-
     const {
+      mobilenumber,
+      countryCode = "+91",
       password,
     } = req.body;
 
-    const user =
-      await User.findOne({ email });
+    if (!mobilenumber || !password) {
+      return res.status(400).json({
+        success: false,
+        message: "Mobile number and new password are required.",
+      });
+    }
+
+    const phone = normalizePhone(countryCode, mobilenumber);
+
+    if (!phone) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid mobile number.",
+      });
+    }
+
+    const user = await User.findOne({
+      mobilenumber: phone.mobilenumber,
+      countryCode: phone.countryCode,
+    });
 
     if (
       !user ||
-      !user.forgotOtpVerified
+      !user.forgotOtpVerified ||
+      !user.forgotOtpExpiry ||
+      user.forgotOtpExpiry < new Date()
     ) {
       return res.status(400).json({
         success: false,
-        message:
-          "Verify OTP first",
+        message: "Verify a valid OTP before resetting your password.",
       });
     }
 
-    const passwordRegex =
-      /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{6,}$/;
-
-    if (
-      !passwordRegex.test(password)
-    ) {
+    if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{6,}$/.test(password)) {
       return res.status(400).json({
         success: false,
         message:
-          "Password must contain at least 6 characters, uppercase, lowercase and number",
+          "Password must contain at least 6 characters, uppercase, lowercase and a number.",
       });
     }
 
-    user.password =
-      await bcrypt.hash(
-        password,
-        10
-      );
-
-    user.forgotOtpHash =
-      undefined;
-
-    user.forgotOtpExpiry =
-      undefined;
-
-    user.forgotOtpVerified =
-      false;
+    user.password = await bcrypt.hash(password, 10);
+    user.forgotOtpHash = undefined;
+    user.forgotOtpExpiry = undefined;
+    user.forgotOtpVerified = false;
 
     await user.save();
 
     return res.json({
       success: true,
-      message:
-        "Password reset successful",
+      message: "Password reset successful.",
     });
   } catch (error) {
-    console.error(
-      "RESET PASSWORD ERROR:",
-      error
-    );
+    console.error("RESET PASSWORD ERROR:", error.message);
 
     return res.status(500).json({
       success: false,
-      message:
-        "Password reset failed",
+      message: "Password reset failed.",
     });
   }
 };

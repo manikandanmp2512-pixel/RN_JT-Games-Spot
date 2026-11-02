@@ -1,7 +1,10 @@
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 
 import {
+  ActivityIndicator,
+  FlatList,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -13,89 +16,115 @@ import {
 
 import { router } from "expo-router";
 
-import { registerUser } from "@/services/authApi";
+import {
+  getCountries,
+  getCountryCallingCode,
+  parsePhoneNumberFromString,
+  type CountryCode,
+} from "libphonenumber-js";
 
-import { showError, showSuccess } from "@/components/JayToast";
-import { countryCodeToFlag } from "@/utils/chessUtils";
-import CountryPicker, {
-  Country,
-  CountryCode,
-} from "react-native-country-picker-modal";
+import {
+  registerUser,
+  verifyRegisterOtp,
+} from "@/services/authApi";
 
-// =============================================================
-// REGEX
-// =============================================================
+import {
+  showError,
+  showSuccess,
+} from "@/components/JayToast";
 
-// Name: letters only, 2-30 characters
 const FNAME_REGEX = /^[A-Za-z]{2,30}$/;
-const LNAME_REGEX = /^[A-Z]{1,2}$/;
+const LNAME_REGEX = /^[A-Za-z]{1,30}$/;
+const PASSWORD_REGEX =
+  /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{6,}$/;
 
-// Email
-const EMAIL_REGEX = /^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$/;
+type CountryItem = {
+  name: string;
+  code: string;
+  cca2: CountryCode;
+};
 
-// Country code
-const COUNTRY_CODE_REGEX = /^\+[1-9]\d{0,2}$/;
+const getCountryName = (countryCode: CountryCode) => {
+  try {
+    if (typeof Intl !== "undefined" && Intl.DisplayNames) {
+      const names = new Intl.DisplayNames(["en"], {
+        type: "region",
+      });
+      return names.of(countryCode) || countryCode;
+    }
+  } catch {}
+  return countryCode;
+};
 
-// Indian mobile number
-const MOBILE_REGEX = /^[6-9]\d{9}$/;
+const getCountryFlag = (countryCode: CountryCode) =>
+  countryCode
+    .toUpperCase()
+    .replace(/./g, (char) =>
+      String.fromCodePoint(char.charCodeAt(0) + 127397)
+    );
 
-// Password:
-// minimum 6 characters
-// at least one uppercase
-// at least one lowercase
-// at least one number
-const PASSWORD_REGEX = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{6,}$/;
+const COUNTRY_CODES: CountryItem[] = getCountries()
+  .map((cca2) => ({
+    name: getCountryName(cca2),
+    code: `+${getCountryCallingCode(cca2)}`,
+    cca2,
+  }))
+  .filter((country) => country.name !== country.cca2)
+  .sort((a, b) => a.name.localeCompare(b.name));
 
 export default function Register() {
-  // ===========================================================
-  // FORM
-  // ===========================================================
-
   const [form, setForm] = useState({
     fname: "",
     lname: "",
-    email: "",
     countryCode: "+91",
     mobilenumber: "",
     password: "",
     confirmPassword: "",
   });
 
+  const [selectedCountry, setSelectedCountry] =
+    useState<CountryCode>("IN");
+
   const [loading, setLoading] = useState(false);
+  const [otpLoading, setOtpLoading] = useState(false);
+  const [otpModalVisible, setOtpModalVisible] = useState(false);
+  const [mobileOtp, setMobileOtp] = useState("");
+  const [developmentOtp, setDevelopmentOtp] = useState(false);
 
-  // Country Code
-  const [countryPickerVisible, setCountryPickerVisible] = useState(false);
-  const [selectedCountry, setSelectedCountry] = useState<CountryCode>("IN");
-  const [countryCallingCode, setCountryCallingCode] = useState("+91");
-
-  // ===========================================================
-  // PASSWORD VISIBILITY
-  // ===========================================================
+  const [countryPickerVisible, setCountryPickerVisible] =
+    useState(false);
+  const [countrySearch, setCountrySearch] = useState("");
 
   const [showPassword, setShowPassword] = useState(false);
-
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-
-  // ===========================================================
-  // SCROLL VIEW
-  // ===========================================================
+  const [showConfirmPassword, setShowConfirmPassword] =
+    useState(false);
 
   const scrollRef = useRef<ScrollView>(null);
 
-  // ===========================================================
-  // UPDATE FORM
-  // ===========================================================
+  const filteredCountries = useMemo(() => {
+    const search = countrySearch.trim().toLowerCase();
 
-  const update = (key: keyof typeof form, value: string) => {
+    if (!search) return COUNTRY_CODES;
+
+    return COUNTRY_CODES.filter(
+      (country) =>
+        country.name.toLowerCase().includes(search) ||
+        country.code.includes(search) ||
+        country.cca2.toLowerCase().includes(search)
+    );
+  }, [countrySearch]);
+
+  const currentCountryFlag = getCountryFlag(selectedCountry);
+
+  const update = (
+    key: keyof typeof form,
+    value: string
+  ) => {
     setForm((previous) => ({
       ...previous,
       [key]: value,
     }));
   };
-
-  // ===========================================================
-  // MOVE INPUT ABOVE KEYBOARD
-  // ===========================================================
 
   const handleFocus = (y: number) => {
     setTimeout(() => {
@@ -106,121 +135,47 @@ export default function Register() {
     }, 100);
   };
 
-  // ===========================================================
-  // VALIDATION
-  // ===========================================================
+  const getValidatedPhone = () => {
+    const phone = parsePhoneNumberFromString(
+      form.mobilenumber.trim(),
+      selectedCountry
+    );
 
-  const validateForm = () => {
-    const firstName = form.fname.trim();
-
-    const lastName = form.lname.trim();
-
-    const email = form.email.trim().toLowerCase();
-
-    const countryCode = form.countryCode.trim();
-
-    const mobile = form.mobilenumber.trim();
-
-    // ---------------------------------------------------------
-    // FIRST NAME
-    // ---------------------------------------------------------
-
-    if (!firstName) {
-      showError("First Name Required", "Please enter your first name.");
-      return false;
-    }
-
-    if (!FNAME_REGEX.test(firstName)) {
-      showError(
-        "Invalid First Name",
-        "First name should contain only letters."
-      );
-      return false;
-    }
-
-    // ---------------------------------------------------------
-    // LAST NAME
-    // ---------------------------------------------------------
-
-    if (!lastName) {
-      showError("Last Name Required", "Please enter your last name.");
-      return false;
-    }
-
-    if (!LNAME_REGEX.test(lastName)) {
-      showError(
-        "Invalid Last Name",
-        "Last name should contain only one letters."
-      );
-      return false;
-    }
-
-    // ---------------------------------------------------------
-    // EMAIL
-    // ---------------------------------------------------------
-
-    if (!email) {
-      showError("Email Required", "Please enter your email address.");
-      return false;
-    }
-
-    if (!EMAIL_REGEX.test(email)) {
-      showError("Invalid Email", "Please enter a valid email address.");
-      return false;
-    }
-
-    // ---------------------------------------------------------
-    // COUNTRY CODE
-    // ---------------------------------------------------------
-
-    if (!COUNTRY_CODE_REGEX.test(countryCode)) {
-      showError(
-        "Invalid Country Code",
-        "Enter a valid country code such as +91."
-      );
-      return false;
-    }
-
-    // ---------------------------------------------------------
-    // MOBILE
-    // ---------------------------------------------------------
-
-    if (!mobile) {
-      showError("Mobile Number Required", "Please enter your mobile number.");
-      return false;
-    }
-
-    if (!MOBILE_REGEX.test(mobile)) {
+    if (!phone || !phone.isValid()) {
       showError(
         "Invalid Mobile Number",
-        "Enter a valid 10-digit mobile number."
+        "Please check your selected country and mobile number."
+      );
+      return null;
+    }
+
+    return phone;
+  };
+
+  const validateForm = () => {
+    if (!FNAME_REGEX.test(form.fname.trim())) {
+      showError(
+        "Invalid First Name",
+        "First name must contain 2–30 letters."
       );
       return false;
     }
 
-    // ---------------------------------------------------------
-    // PASSWORD
-    // ---------------------------------------------------------
-
-    if (!form.password) {
-      showError("Password Required", "Please enter a password.");
+    if (!LNAME_REGEX.test(form.lname.trim())) {
+      showError(
+        "Invalid Last Name",
+        "Last name must contain 1–30 letters."
+      );
       return false;
     }
+
+    if (!getValidatedPhone()) return false;
 
     if (!PASSWORD_REGEX.test(form.password)) {
       showError(
         "Invalid Password",
         "Use at least 6 characters with uppercase, lowercase and a number."
       );
-      return false;
-    }
-
-    // ---------------------------------------------------------
-    // CONFIRM PASSWORD
-    // ---------------------------------------------------------
-
-    if (!form.confirmPassword) {
-      showError("Confirm Password", "Please confirm your password.");
       return false;
     }
 
@@ -235,166 +190,146 @@ export default function Register() {
     return true;
   };
 
-  // ===========================================================
-  // SUBMIT
-  // ===========================================================
-
-  // const submit = async () => {
-  //   if (!validateForm()) {
-  //     return;
-  //   }
-
-  //   try {
-  //     setLoading(true);
-
-  //     // IMPORTANT:
-  //     // Existing backend payload is preserved.
-
-  //     const result = await registerUser({
-  //       ...form,
-  //       fname: form.fname.trim(),
-  //       lname: form.lname.trim(),
-  //       email: form.email.trim().toLowerCase(),
-  //       countryCode:
-  //         form.countryCode.trim(),
-  //       mobilenumber:
-  //         form.mobilenumber.trim(),
-  //     });
-
-  //     setLoading(false);
-
-  //     // -------------------------------------------------------
-  //     // BACKEND ERROR
-  //     // -------------------------------------------------------
-
-  //     if (!result.success) {
-  //       showError(
-  //         "Registration Failed",
-  //         result.message ||
-  //           "Please try again."
-  //       );
-
-  //       return;
-  //     }
-
-  //     // -------------------------------------------------------
-  //     // OTP SUCCESS
-  //     // -------------------------------------------------------
-
-  //     showSuccess(
-  //       "OTP Sent",
-  //       "Check your email for the registration OTP."
-  //     );
-
-  //     setTimeout(() => {
-  //       router.push({
-  //         pathname:
-  //           "/verify-register-otp",
-
-  //         params: {
-  //           email: form.email
-  //             .trim()
-  //             .toLowerCase(),
-  //         },
-  //       });
-  //     }, 600);
-
-  //   } catch (error: any) {
-  //     setLoading(false);
-
-  //     console.error(
-  //       "REGISTER ERROR:",
-  //       error
-  //     );
-
-  //     showError(
-  //       "Registration Failed",
-  //       error?.response?.data?.message ||
-  //         error?.message ||
-  //         "Something went wrong. Please try again."
-  //     );
-  //   }
-  // };
+  const handleCountrySelect = (country: CountryItem) => {
+    setSelectedCountry(country.cca2);
+    update("countryCode", country.code);
+    update("mobilenumber", "");
+    setCountryPickerVisible(false);
+    setCountrySearch("");
+  };
 
   const submit = async () => {
-    if (loading) {
-      return;
-    }
+    if (loading || otpLoading) return;
+    if (!validateForm()) return;
 
-    if (!validateForm()) {
-      return;
-    }
+    const phone = getValidatedPhone();
+    if (!phone) return;
 
     try {
       setLoading(true);
 
       const result = await registerUser({
         fname: form.fname.trim(),
-
         lname: form.lname.trim(),
-
-        email: form.email.trim().toLowerCase(),
-
-        countryCode: form.countryCode.trim(),
-
-        mobilenumber: form.mobilenumber.trim(),
-
+        countryCode: `+${phone.countryCallingCode}`,
+        mobilenumber: phone.nationalNumber,
         password: form.password,
-
         confirmPassword: form.confirmPassword,
       });
 
-      if (!result.success) {
+      if (!result?.success) {
         showError(
           "Registration Failed",
-          result.message || "Unable to start registration."
+          result?.message || "Unable to start registration."
         );
-
         return;
       }
 
-      showSuccess(
-        "OTP Sent",
-        "OTP has been sent to your Gmail and mobile number."
-      );
+      setMobileOtp("");
+      setDevelopmentOtp(result.developmentOnly === true);
 
-      setTimeout(() => {
-        router.push({
-          pathname: "/verify-register-otp",
+      if (result.developmentOnly === true) {
+        if (!result.developmentOtp) {
+          showError(
+            "OTP Error",
+            "The development OTP was not returned by the server."
+          );
+          return;
+        }
 
-          params: {
-            email: form.email.trim().toLowerCase(),
-          },
-        });
-      }, 600);
+        setMobileOtp(String(result.developmentOtp));
+
+        showSuccess(
+          "Development OTP",
+          `Local test OTP: ${result.developmentOtp}`
+        );
+      } else {
+        showSuccess(
+          "Mobile OTP Sent",
+          "Enter the OTP sent to your mobile number."
+        );
+      }
+
+      setOtpModalVisible(true);
     } catch (error: any) {
-      console.error("========== REGISTER DEBUG ==========");
-      console.error("Request URL:", error?.config?.url);
-      console.error("HTTP Status:", error?.response?.status);
-      console.error("Backend Response:", error?.response?.data);
-      console.error("Request Payload:", error?.config?.data);
-      console.error("Error Message:", error?.message);
-      console.error("====================================");
-
-      const backendMessage =
-        error?.response?.data?.message ||
-        error?.response?.data?.error ||
-        error?.response?.data?.details;
+      console.error("REGISTER ERROR:", {
+        status: error?.response?.status,
+        response: error?.response?.data,
+        message: error?.message,
+      });
 
       showError(
         "Registration Failed",
-        typeof backendMessage === "string"
-          ? backendMessage
-          : "The server could not complete registration. Check the backend terminal for the exact error."
+        error?.response?.data?.message ||
+          error?.message ||
+          "Unable to start registration."
       );
     } finally {
       setLoading(false);
     }
   };
 
-  // ===========================================================
-  // UI
-  // ===========================================================
+  const handleFinalRegister = async () => {
+    if (otpLoading) return;
+
+    const otp = mobileOtp.trim();
+
+    if (!/^\d{6}$/.test(otp)) {
+      showError(
+        "Invalid OTP",
+        "Please enter the 6-digit mobile OTP."
+      );
+      return;
+    }
+
+    const phone = getValidatedPhone();
+    if (!phone) return;
+
+    try {
+      setOtpLoading(true);
+
+      const result = await verifyRegisterOtp({
+        countryCode: `+${phone.countryCallingCode}`,
+        mobilenumber: phone.nationalNumber,
+        mobileOtp: otp,
+      });
+
+      if (!result?.success) {
+        showError(
+          "OTP Verification Failed",
+          result?.message || "Please check your OTP."
+        );
+        return;
+      }
+
+      setOtpModalVisible(false);
+      setMobileOtp("");
+
+      showSuccess(
+        "Registration Successful",
+        "Your Jay Tech account has been created. Please log in."
+      );
+
+      setTimeout(() => {
+        router.replace("/login");
+      }, 700);
+    } catch (error: any) {
+      console.error("FINAL REGISTRATION ERROR:", {
+        status: error?.response?.status,
+        response: error?.response?.data,
+        message: error?.message,
+      });
+
+      showError(
+        "Verification Failed",
+        error?.response?.data?.message ||
+          error?.message ||
+          "Unable to verify OTP."
+      );
+    } finally {
+      setOtpLoading(false);
+    }
+  };
 
   return (
     <KeyboardAvoidingView
@@ -408,22 +343,14 @@ export default function Register() {
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
-        automaticallyAdjustKeyboardInsets={true}
+        automaticallyAdjustKeyboardInsets
       >
         <View style={styles.formContainer}>
-          {/* =================================================
-              TITLE
-          ================================================= */}
-
           <Text style={styles.title}>Create Account</Text>
 
           <Text style={styles.sub}>
             Register once, then play Chess, Carrom and Ludo.
           </Text>
-
-          {/* =================================================
-              FIRST + LAST NAME
-          ================================================= */}
 
           <View style={[styles.row, styles.nameRow]}>
             <TextInput
@@ -431,12 +358,9 @@ export default function Register() {
               onChangeText={(value) =>
                 update("fname", value.replace(/[^A-Za-z]/g, "").slice(0, 30))
               }
-              onFocus={() => handleFocus(0)}
               placeholder="First name"
               placeholderTextColor="#7894A2"
               autoCapitalize="words"
-              autoCorrect={false}
-              returnKeyType="next"
               style={[styles.input, styles.half]}
             />
 
@@ -445,94 +369,36 @@ export default function Register() {
               onChangeText={(value) =>
                 update("lname", value.replace(/[^A-Za-z]/g, "").slice(0, 30))
               }
-              onFocus={() => handleFocus(0)}
               placeholder="Last name"
               placeholderTextColor="#7894A2"
               autoCapitalize="words"
-              autoCorrect={false}
-              returnKeyType="next"
               style={[styles.input, styles.half]}
             />
           </View>
 
-          {/* =================================================
-              EMAIL
-          ================================================= */}
-
-          <TextInput
-            value={form.email}
-            onChangeText={(value) =>
-              update("email", value.replace(/\s/g, "").slice(0, 100))
-            }
-            onFocus={() => handleFocus(45)}
-            autoCapitalize="none"
-            autoCorrect={false}
-            keyboardType="email-address"
-            returnKeyType="next"
-            placeholder="Email"
-            placeholderTextColor="#7894A2"
-            style={styles.input}
-          />
-
-          {/* =================================================
-              COUNTRY + MOBILE
-          ================================================= */}
-
           <View style={styles.row}>
-            {/* <TextInput
-              value={form.countryCode}
-              onChangeText={(value) => {
-                let cleaned = value.replace(/[^\d+]/g, "");
-
-                if (cleaned && !cleaned.startsWith("+")) {
-                  cleaned = "+" + cleaned;
-                }
-
-                update("countryCode", cleaned.slice(0, 4));
-              }}
-              onFocus={() => handleFocus(90)}
-              keyboardType="phone-pad"
-              returnKeyType="next"
-              placeholder="+91"
-              placeholderTextColor="#7894A2"
-              style={[styles.input, styles.code]}
-            /> */}
             <Pressable
               onPress={() => setCountryPickerVisible(true)}
-              style={[styles.input, styles.code, styles.countryButton]}
+              style={[
+                styles.input,
+                styles.code,
+                styles.countryButton,
+              ]}
             >
               <Text style={styles.countryButtonText}>
-                {countryCodeToFlag(form.countryCode)} {form.countryCode} ▾
+                {currentCountryFlag} {form.countryCode} ▾
               </Text>
             </Pressable>
-
-            <CountryPicker
-              countryCode={selectedCountry}
-              withFilter
-              withFlag
-              withCallingCode
-              withCountryNameButton
-              withCallingCodeButton={false}
-              visible={countryPickerVisible}
-              onClose={() => setCountryPickerVisible(false)}
-              onSelect={(country: Country) => {
-                const dialCode = `+${country.callingCode?.[0] || "91"}`;
-
-                setSelectedCountry(country.cca2);
-                setCountryCallingCode(dialCode);
-                update("countryCode", dialCode);
-                setCountryPickerVisible(false);
-              }}
-            />
 
             <TextInput
               value={form.mobilenumber}
               onChangeText={(value) =>
-                update("mobilenumber", value.replace(/\D/g, "").slice(0, 10))
+                update(
+                  "mobilenumber",
+                  value.replace(/\D/g, "").slice(0, 15)
+                )
               }
-              onFocus={() => handleFocus(90)}
               keyboardType="phone-pad"
-              returnKeyType="next"
               placeholder="Mobile number"
               placeholderTextColor="#7894A2"
               style={[styles.input, styles.mobile]}
@@ -540,35 +406,22 @@ export default function Register() {
           </View>
 
           <Text style={styles.hint}>
-            Country code controls the chess country flag.
+            Select your country and enter your mobile number.
           </Text>
 
-          {/* =================================================
-              PASSWORD
-          ================================================= */}
-
-          <View style={[styles.passwordContainer, styles.passwordFirst]}>
+          <View style={styles.passwordContainer}>
             <TextInput
               value={form.password}
               onChangeText={(value) => update("password", value)}
-              onFocus={() => handleFocus(145)}
               secureTextEntry={!showPassword}
               autoCapitalize="none"
-              autoCorrect={false}
-              returnKeyType="next"
               placeholder="Password"
               placeholderTextColor="#7894A2"
               style={[styles.input, styles.passwordInput]}
             />
-
             <Pressable
-              style={({ pressed }) => [
-                styles.showButton,
-                {
-                  opacity: pressed ? 0.6 : 1,
-                },
-              ]}
-              onPress={() => setShowPassword((previous) => !previous)}
+              style={styles.showButton}
+              onPress={() => setShowPassword((value) => !value)}
             >
               <Text style={styles.showText}>
                 {showPassword ? "Hide" : "Show"}
@@ -576,32 +429,23 @@ export default function Register() {
             </Pressable>
           </View>
 
-          {/* =================================================
-              CONFIRM PASSWORD
-          ================================================= */}
-
           <View style={styles.passwordContainer}>
             <TextInput
               value={form.confirmPassword}
-              onChangeText={(value) => update("confirmPassword", value)}
-              onFocus={() => handleFocus(200)}
+              onChangeText={(value) =>
+                update("confirmPassword", value)
+              }
               secureTextEntry={!showConfirmPassword}
               autoCapitalize="none"
-              autoCorrect={false}
-              returnKeyType="done"
               placeholder="Confirm password"
               placeholderTextColor="#7894A2"
               style={[styles.input, styles.passwordInput]}
             />
-
             <Pressable
-              style={({ pressed }) => [
-                styles.showButton,
-                {
-                  opacity: pressed ? 0.6 : 1,
-                },
-              ]}
-              onPress={() => setShowConfirmPassword((previous) => !previous)}
+              style={styles.showButton}
+              onPress={() =>
+                setShowConfirmPassword((value) => !value)
+              }
             >
               <Text style={styles.showText}>
                 {showConfirmPassword ? "Hide" : "Show"}
@@ -609,43 +453,157 @@ export default function Register() {
             </Pressable>
           </View>
 
-          {/* =================================================
-              CREATE ACCOUNT
-          ================================================= */}
-
           <Pressable
-            disabled={loading}
+            disabled={loading || otpLoading}
             onPress={submit}
-            style={({ pressed }) => [
+            style={[
               styles.button,
-              {
-                opacity: loading || pressed ? 0.7 : 1,
-              },
+              { opacity: loading ? 0.6 : 1 },
             ]}
           >
-            <Text style={styles.buttonText}>
-              {loading ? "Creating…" : "Create Account"}
-            </Text>
+            {loading ? (
+              <ActivityIndicator color="#071E2B" />
+            ) : (
+              <Text style={styles.buttonText}>Create Account</Text>
+            )}
           </Pressable>
-
-          {/* =================================================
-              LOGIN
-          ================================================= */}
 
           <Pressable onPress={() => router.replace("/login")}>
             <Text style={styles.textlogin}>
-              Already have an account? <Text style={styles.login}>Login</Text>
+              Already have an account?{" "}
+              <Text style={styles.login}>Login</Text>
             </Text>
           </Pressable>
         </View>
+
+        <Modal
+          visible={countryPickerVisible}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setCountryPickerVisible(false)}
+        >
+          <View style={styles.countryModalOverlay}>
+            <View style={styles.countryModalContainer}>
+              <Text style={styles.countryModalTitle}>
+                Select Country Code
+              </Text>
+
+              <TextInput
+                style={styles.countrySearchInput}
+                placeholder="Search country or calling code..."
+                placeholderTextColor="#7894A2"
+                value={countrySearch}
+                onChangeText={setCountrySearch}
+                autoCapitalize="none"
+              />
+
+              <FlatList
+                data={filteredCountries}
+                keyExtractor={(item) => item.cca2}
+                keyboardShouldPersistTaps="handled"
+                renderItem={({ item }) => (
+                  <Pressable
+                    style={styles.countryItem}
+                    onPress={() => handleCountrySelect(item)}
+                  >
+                    <Text style={styles.countryItemText}>
+                      {getCountryFlag(item.cca2)} {item.name}
+                    </Text>
+                    <Text style={styles.countryItemCode}>
+                      {item.code}
+                    </Text>
+                  </Pressable>
+                )}
+                ListEmptyComponent={
+                  <Text style={styles.emptyCountryText}>
+                    No country found.
+                  </Text>
+                }
+              />
+
+              <Pressable
+                onPress={() => setCountryPickerVisible(false)}
+                style={styles.countryCloseButton}
+              >
+                <Text style={styles.countryCloseText}>Close</Text>
+              </Pressable>
+            </View>
+          </View>
+        </Modal>
+
+        <Modal
+          visible={otpModalVisible}
+          transparent
+          animationType="fade"
+          onRequestClose={() => {
+            if (!otpLoading) setOtpModalVisible(false);
+          }}
+        >
+          <View style={styles.otpOverlay}>
+            <View style={styles.otpContainer}>
+              <Text style={styles.otpTitle}>
+                Mobile Verification
+              </Text>
+
+              <Text style={styles.otpDescription}>
+                Enter the 6-digit OTP sent to:
+              </Text>
+
+              <Text style={styles.otpMobile}>
+                {form.countryCode} {form.mobilenumber}
+              </Text>
+
+              <TextInput
+                value={mobileOtp}
+                onChangeText={(value) =>
+                  setMobileOtp(value.replace(/\D/g, "").slice(0, 6))
+                }
+                placeholder="Enter 6-digit OTP"
+                placeholderTextColor="#7894A2"
+                keyboardType="number-pad"
+                maxLength={6}
+                textContentType="oneTimeCode"
+                style={styles.otpInput}
+              />
+
+              <Pressable
+                disabled={otpLoading}
+                onPress={handleFinalRegister}
+                style={[
+                  styles.otpFinalButton,
+                  { opacity: otpLoading ? 0.6 : 1 },
+                ]}
+              >
+                {otpLoading ? (
+                  <ActivityIndicator color="#071E2B" />
+                ) : (
+                  <Text style={styles.otpFinalButtonText}>
+                    Verify & Register
+                  </Text>
+                )}
+              </Pressable>
+
+              <Pressable
+                disabled={otpLoading}
+                onPress={() => {
+                  setOtpModalVisible(false);
+                  setMobileOtp("");
+                }}
+                style={styles.otpCancelButton}
+              >
+                <Text style={styles.otpCancelText}>Cancel</Text>
+              </Pressable>
+
+              <Text style={styles.otpExpiry}>
+                OTP expires in 10 minutes.
+              </Text>
+            </View>
+          </View>
+        </Modal>
       </ScrollView>
     </KeyboardAvoidingView>
   );
 }
-
-// =============================================================
-// STYLES
-// =============================================================
 
 const styles = StyleSheet.create({
   safe: {
@@ -653,35 +611,26 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#071E2B",
   },
-
   scroll: {
     flex: 1,
   },
-
   scrollContent: {
     flexGrow: 1,
     padding: 22,
     paddingBottom: 60,
     justifyContent: "center",
   },
-
   formContainer: {
     width: "100%",
     maxWidth: 450,
     alignSelf: "center",
   },
-
-  // ===========================================================
-  // TITLE
-  // ===========================================================
-
   title: {
     color: "#FFFFFF",
     fontSize: 30,
     fontWeight: "900",
     textAlign: "center",
   },
-
   sub: {
     color: "#9DB5C0",
     textAlign: "center",
@@ -690,24 +639,13 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
   },
-
-  // ===========================================================
-  // ROW
-  // ===========================================================
-
   row: {
     flexDirection: "row",
     gap: 9,
   },
-
   nameRow: {
     width: "100%",
   },
-
-  // ===========================================================
-  // INPUT
-  // ===========================================================
-
   input: {
     height: 50,
     borderRadius: 13,
@@ -715,120 +653,192 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     paddingHorizontal: 14,
     marginBottom: 10,
-
     borderWidth: 1,
     borderColor: "#2C596B",
-
     fontSize: 15,
   },
-
   half: {
     flex: 1,
   },
-
   code: {
-    width: 75,
+    width: 115,
   },
-
   mobile: {
     flex: 1,
   },
-
-  // ===========================================================
-  // HINT
-  // ===========================================================
-
+  countryButton: {
+    justifyContent: "center",
+  },
+  countryButtonText: {
+    color: "#FFFFFF",
+    fontSize: 13,
+    fontWeight: "700",
+  },
   hint: {
     color: "#F4A000",
     fontSize: 10,
     marginTop: -4,
     marginBottom: 8,
   },
-
-  // ===========================================================
-  // PASSWORD
-  // ===========================================================
-
   passwordContainer: {
     position: "relative",
+  },
+  passwordInput: {
+    paddingRight: 65,
     width: "100%",
   },
-
-  passwordFirst: {
-    marginTop: 0,
-  },
-
-  passwordInput: {
-    paddingRight: 70,
-  },
-
   showButton: {
     position: "absolute",
-    right: 15,
-    top: 16,
+    right: 14,
+    top: 13,
   },
-
   showText: {
     color: "#F4A000",
-    fontSize: 13,
     fontWeight: "800",
   },
-
-  // ===========================================================
-  // BUTTON
-  // ===========================================================
-
   button: {
     height: 52,
-    borderRadius: 14,
     backgroundColor: "#F4A000",
-
+    borderRadius: 13,
     alignItems: "center",
     justifyContent: "center",
-
-    marginTop: 7,
-
-    elevation: 4,
-
-    shadowColor: "#F4A000",
-    shadowOffset: {
-      width: 0,
-      height: 3,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 5,
+    marginTop: 12,
   },
-
   buttonText: {
     color: "#071E2B",
-    fontWeight: "900",
     fontSize: 16,
+    fontWeight: "900",
   },
-
-  // ===========================================================
-  // LOGIN LINK
-  // ===========================================================
   textlogin: {
-    color: "#7894A2",
+    color: "#9DB5C0",
     textAlign: "center",
-    marginTop: 18,
-    fontWeight: "800",
-    fontSize: 14,
+    marginTop: 22,
   },
   login: {
     color: "#F4A000",
+    fontWeight: "900",
   },
-
-  
-  countryButton: {
-    width: 115,
+  countryModalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.65)",
     justifyContent: "center",
-    paddingHorizontal: 8,
+    padding: 20,
   },
-
-  countryButtonText: {
+  countryModalContainer: {
+    maxHeight: "80%",
+    backgroundColor: "#102F40",
+    borderRadius: 18,
+    padding: 18,
+  },
+  countryModalTitle: {
     color: "#FFFFFF",
-    fontSize: 13,
+    fontSize: 19,
+    fontWeight: "900",
+    marginBottom: 12,
+  },
+  countrySearchInput: {
+    height: 48,
+    borderRadius: 10,
+    backgroundColor: "#17394B",
+    color: "#FFFFFF",
+    paddingHorizontal: 12,
+    marginBottom: 10,
+  },
+  countryItem: {
+    paddingVertical: 13,
+    borderBottomWidth: 1,
+    borderBottomColor: "#2C596B",
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  countryItemText: {
+    color: "#FFFFFF",
+  },
+  countryItemCode: {
+    color: "#F4A000",
     fontWeight: "800",
+  },
+  emptyCountryText: {
+    color: "#FFFFFF",
+    textAlign: "center",
+    padding: 20,
+  },
+  countryCloseButton: {
+    padding: 13,
+    alignItems: "center",
+    marginTop: 8,
+  },
+  countryCloseText: {
+    color: "#F4A000",
+    fontWeight: "900",
+  },
+  otpOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.75)",
+    justifyContent: "center",
+    padding: 22,
+  },
+  otpContainer: {
+    backgroundColor: "#102F40",
+    borderRadius: 18,
+    padding: 22,
+  },
+  otpTitle: {
+    color: "#FFFFFF",
+    fontSize: 23,
+    fontWeight: "900",
+    textAlign: "center",
+  },
+  otpDescription: {
+    color: "#9DB5C0",
+    textAlign: "center",
+    marginTop: 12,
+  },
+  otpMobile: {
+    color: "#F4A000",
+    fontSize: 17,
+    fontWeight: "900",
+    textAlign: "center",
+    marginVertical: 10,
+  },
+  otpInput: {
+    height: 54,
+    backgroundColor: "#17394B",
+    borderWidth: 1,
+    borderColor: "#2C596B",
+    borderRadius: 12,
+    color: "#FFFFFF",
+    textAlign: "center",
+    fontSize: 22,
+    letterSpacing: 8,
+    marginTop: 10,
+  },
+  otpFinalButton: {
+    height: 52,
+    backgroundColor: "#F4A000",
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 16,
+  },
+  otpFinalButtonText: {
+    color: "#071E2B",
+    fontSize: 15,
+    fontWeight: "900",
+  },
+  otpCancelButton: {
+    padding: 12,
+    alignItems: "center",
+    marginTop: 4,
+  },
+  otpCancelText: {
+    color: "#9DB5C0",
+    fontWeight: "800",
+  },
+  otpExpiry: {
+    color: "#7894A2",
+    textAlign: "center",
+    fontSize: 11,
+    marginTop: 10,
   },
 });
