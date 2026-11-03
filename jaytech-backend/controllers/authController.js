@@ -1,4 +1,3 @@
-
 const bcrypt = require("bcryptjs");
 const crypto = require("crypto");
 
@@ -67,6 +66,18 @@ const publicUser = (user) => ({
 /* -------------------------------------------------------------------------- */
 
 exports.register = async (req, res) => {
+
+  // ADD THIS BLOCK HERE
+  console.log("REGISTER REQUEST FIELD CHECK:", {
+    hasBody: Boolean(req.body),
+    hasFname: Boolean(req.body?.fname),
+    hasLname: Boolean(req.body?.lname),
+    hasCountryCode: Boolean(req.body?.countryCode),
+    hasMobilenumber: Boolean(req.body?.mobilenumber),
+    hasPassword: Boolean(req.body?.password),
+    hasConfirmPassword: Boolean(req.body?.confirmPassword),
+  });
+  
   let pendingId = null;
 
   try {

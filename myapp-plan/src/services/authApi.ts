@@ -16,7 +16,7 @@ const API_BASE_URL = (
 const API_URL = API_BASE_URL.endsWith("/api")
   ? API_BASE_URL
   : `${API_BASE_URL}/api`;
-  
+
 console.log("JAYTECH API URL:", API_URL);
 
 export const api = axios.create({
@@ -28,17 +28,11 @@ export const api = axios.create({
   },
 });
 
-// ============================================================
-// AUTHENTICATION INTERCEPTOR
-// ============================================================
-
 api.interceptors.request.use(
   async (config) => {
     try {
       const token = await getAuthToken();
-
-      const isPublicAuthRequest =
-        config.url?.startsWith("/auth/");
+      const isPublicAuthRequest = config.url?.startsWith("/auth/");
 
       if (token && !isPublicAuthRequest) {
         config.headers = config.headers || {};
@@ -54,21 +48,12 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-// ============================================================
-// API ERROR MESSAGE
-// ============================================================
-
 export const getApiErrorMessage = (error: unknown): string => {
   if (axios.isAxiosError(error)) {
     const data = error.response?.data;
 
-    if (typeof data?.message === "string") {
-      return data.message;
-    }
-
-    if (typeof data?.error === "string") {
-      return data.error;
-    }
+    if (typeof data?.message === "string") return data.message;
+    if (typeof data?.error === "string") return data.error;
 
     if (!error.response) {
       return "Cannot connect to the backend. Check the API URL and server.";
@@ -82,101 +67,64 @@ export const getApiErrorMessage = (error: unknown): string => {
     : "Something went wrong.";
 };
 
-// ============================================================
-// MOBILE AUTH DATA
-// ============================================================
-
 export type MobileAuthData = {
   countryCode: string;
   mobilenumber: string;
 };
 
-// ============================================================
-// REGISTER
-// ============================================================
-
-export const registerUser = async (data: {
+export type RegisterData = {
   fname: string;
   lname: string;
   countryCode: string;
   mobilenumber: string;
   password: string;
   confirmPassword: string;
-}) => {
-  const response = await api.post("/auth/register", data);
-  return response.data;
 };
 
-// ============================================================
-// VERIFY REGISTER OTP
-// ============================================================
+export const registerUser = async (data: RegisterData) => {
+  const payload: RegisterData = {
+    fname: data.fname.trim(),
+    lname: data.lname.trim(),
+    countryCode: data.countryCode.trim() || "+91",
+    mobilenumber: data.mobilenumber.trim(),
+    password: data.password,
+    confirmPassword: data.confirmPassword,
+  };
+
+  const response = await api.post("/auth/register", payload);
+  return response.data;
+};
 
 export const verifyRegisterOtp = async (
   data: MobileAuthData & { mobileOtp: string }
 ) => {
-  const response = await api.post(
-    "/auth/verify-register-otp",
-    data
-  );
-
+  const response = await api.post("/auth/verify-register-otp", data);
   return response.data;
 };
 
-// ============================================================
-// LOGIN
-// ============================================================
-
-export const loginUser = async (data: {
-  countryCode: string;
-  mobilenumber: string;
-  password: string;
-}) => {
+export const loginUser = async (
+  data: MobileAuthData & { password: string }
+) => {
   const response = await api.post("/auth/login", data);
   return response.data;
 };
 
-// ============================================================
-// FORGOT PASSWORD OTP
-// ============================================================
-
-export const sendForgotPasswordOtp = async (
-  data: MobileAuthData
-) => {
-  const response = await api.post(
-    "/auth/forgot-password",
-    data
-  );
-
+export const sendForgotPasswordOtp = async (data: MobileAuthData) => {
+  const response = await api.post("/auth/forgot-password", data);
   return response.data;
 };
-
-// ============================================================
-// VERIFY FORGOT OTP
-// ============================================================
 
 export const verifyForgotOtp = async (
   data: MobileAuthData & { otp: string }
 ) => {
-  const response = await api.post(
-    "/auth/verify-forgot-otp",
-    data
-  );
-
+  const response = await api.post("/auth/verify-forgot-otp", data);
   return response.data;
 };
-
-// ============================================================
-// RESET PASSWORD
-// ============================================================
 
 export const resetPassword = async (
   data: MobileAuthData & { password: string }
 ) => {
-  const response = await api.post(
-    "/auth/reset-password",
-    data
-  );
-
+  const response = await api.post("/auth/reset-password", data);
   return response.data;
 };
 

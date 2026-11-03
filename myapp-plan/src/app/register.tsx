@@ -44,16 +44,16 @@ type CountryItem = {
   cca2: CountryCode;
 };
 
-const getCountryName = (countryCode: CountryCode) => {
+const getCountryName = (countryCode: CountryCode): string => {
   try {
-    if (typeof Intl !== "undefined" && Intl.DisplayNames) {
-      const names = new Intl.DisplayNames(["en"], {
-        type: "region",
-      });
-      return names.of(countryCode) || countryCode;
-    }
-  } catch {}
-  return countryCode;
+    const displayNames = new Intl.DisplayNames(["en"], {
+      type: "region",
+    });
+
+    return displayNames.of(countryCode) || countryCode;
+  } catch {
+    return countryCode;
+  }
 };
 
 const getCountryFlag = (countryCode: CountryCode) =>
@@ -69,7 +69,6 @@ const COUNTRY_CODES: CountryItem[] = getCountries()
     code: `+${getCountryCallingCode(cca2)}`,
     cca2,
   }))
-  .filter((country) => country.name !== country.cca2)
   .sort((a, b) => a.name.localeCompare(b.name));
 
 export default function Register() {
