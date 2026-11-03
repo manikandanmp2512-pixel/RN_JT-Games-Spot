@@ -25,8 +25,17 @@ export default function ForgotPasswordVerifyOtpScreen() {
     mobilenumber?: string | string[];
   }>();
 
-  const countryCode = String(params.countryCode || "+91");
-  const mobilenumber = String(params.mobilenumber || "");
+  const countryCode = String(
+    Array.isArray(params.countryCode)
+      ? params.countryCode[0] || "+91"
+      : params.countryCode || "+91"
+  ).trim();
+
+  const mobilenumber = String(
+    Array.isArray(params.mobilenumber)
+      ? params.mobilenumber[0] || ""
+      : params.mobilenumber || ""
+  ).trim();
 
   const scrollRef = useRef<ScrollView>(null);
 
@@ -64,7 +73,7 @@ export default function ForgotPasswordVerifyOtpScreen() {
       const result = await verifyForgotOtp({
         countryCode,
         mobilenumber,
-        otp,
+        otp: otp.trim(),
       });
 
       if (!result?.success) {
@@ -88,6 +97,10 @@ export default function ForgotPasswordVerifyOtpScreen() {
       });
     } catch (error: any) {
       console.error("FORGOT OTP VERIFY ERROR:", error);
+      console.error(
+        "FORGOT OTP VERIFY RESPONSE:",
+        error?.response?.data
+      );
 
       const message =
         error?.response?.data?.message ||
@@ -123,7 +136,9 @@ export default function ForgotPasswordVerifyOtpScreen() {
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
-          keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+          keyboardDismissMode={
+            Platform.OS === "ios" ? "interactive" : "on-drag"
+          }
           showsVerticalScrollIndicator={false}
           automaticallyAdjustKeyboardInsets
         >

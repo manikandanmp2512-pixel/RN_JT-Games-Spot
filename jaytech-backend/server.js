@@ -56,12 +56,16 @@ app.use("/api/auth", mobileOtpRoutes);
 //  Chess Socket.IO
 setupChessSocket(io, app);
 
-//  404 handler
-app.use((req, res) => res.status(404).json({ success: true, message: "JayTech API running" }));
-
-app.get("/", (req, res) => {
-  res.send("JayTech API running");
+// 404 handler — keep this after all API routes
+app.use((req, res) => {
+  return res.status(404).json({
+    success: false,
+    message: `Route not found: ${req.method} ${req.originalUrl}`,
+  });
 });
+// app.use((req, res) => res.status(404).json({ success: true, message: "JayTech API running" }));
+
+// app.get("/", (req, res) => { res.send("JayTech API running")});
 
 //  Server
 const PORT = process.env.PORT || 5000;

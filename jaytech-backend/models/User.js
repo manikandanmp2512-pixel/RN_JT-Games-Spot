@@ -14,15 +14,6 @@ const UserSchema = new mongoose.Schema(
       trim: true,
     },
 
-    // Optional legacy field. New authentication does not use email.
-    email: {
-      type: String,
-      lowercase: true,
-      trim: true,
-      sparse: true,
-      unique: true,
-    },
-
     mobilenumber: {
       type: String,
       required: true,

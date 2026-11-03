@@ -72,11 +72,9 @@ export type MobileAuthData = {
   mobilenumber: string;
 };
 
-export type RegisterData = {
+export type RegisterData = MobileAuthData & {
   fname: string;
   lname: string;
-  countryCode: string;
-  mobilenumber: string;
   password: string;
   confirmPassword: string;
 };
@@ -98,7 +96,13 @@ export const registerUser = async (data: RegisterData) => {
 export const verifyRegisterOtp = async (
   data: MobileAuthData & { mobileOtp: string }
 ) => {
-  const response = await api.post("/auth/verify-register-otp", data);
+  const payload = {
+    countryCode: data.countryCode.trim() || "+91",
+    mobilenumber: data.mobilenumber.trim(),
+    mobileOtp: data.mobileOtp.trim(),
+  };
+
+  const response = await api.post("/auth/verify-register-otp", payload);
   return response.data;
 };
 

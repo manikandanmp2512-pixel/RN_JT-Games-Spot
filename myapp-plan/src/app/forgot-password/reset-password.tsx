@@ -25,8 +25,17 @@ export default function ResetPasswordScreen() {
     mobilenumber?: string | string[];
   }>();
 
-  const countryCode = String(params.countryCode || "+91");
-  const mobilenumber = String(params.mobilenumber || "");
+  const countryCode = String(
+    Array.isArray(params.countryCode)
+      ? params.countryCode[0] || "+91"
+      : params.countryCode || "+91"
+  ).trim();
+
+  const mobilenumber = String(
+    Array.isArray(params.mobilenumber)
+      ? params.mobilenumber[0] || ""
+      : params.mobilenumber || ""
+  ).trim();
 
   const scrollRef = useRef<ScrollView>(null);
 
@@ -140,7 +149,9 @@ export default function ResetPasswordScreen() {
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
-          keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+          keyboardDismissMode={
+            Platform.OS === "ios" ? "interactive" : "on-drag"
+          }
           showsVerticalScrollIndicator={false}
           automaticallyAdjustKeyboardInsets
         >
