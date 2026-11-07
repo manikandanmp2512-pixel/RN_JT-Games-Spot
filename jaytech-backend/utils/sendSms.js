@@ -1,71 +1,84 @@
+
 const twilio = require("twilio");
+const { parsePhoneNumberFromString } = require("libphonenumber-js/max");
 
 let twilioClient = null;
+let cachedAccountSid = null;
 
-const getVerifyService = () => {
+const getTwilioClient = () => {
   const accountSid = process.env.TWILIO_ACCOUNT_SID?.trim();
   const authToken = process.env.TWILIO_AUTH_TOKEN?.trim();
-  const verifyServiceSid =
-    process.env.TWILIO_VERIFY_SERVICE_SID?.trim();
 
-  const missing = [];
-
-  if (!accountSid) missing.push("TWILIO_ACCOUNT_SID");
-  if (!authToken) missing.push("TWILIO_AUTH_TOKEN");
-  if (!verifyServiceSid) {
-    missing.push("TWILIO_VERIFY_SERVICE_SID");
-  }
-
-  if (missing.length) {
-    throw new Error(
-      `Twilio Verify configuration is missing: ${missing.join(", ")}`
-    );
+  if (!accountSid || !authToken) {
+    throw new Error("Twilio account configuration is incomplete.");
   }
 
   if (!/^AC[a-fA-F0-9]{32}$/.test(accountSid)) {
-    throw new Error("Invalid Twilio Account SID format.");
+    throw new Error("Invalid Twilio Account SID.");
   }
 
-  if (!/^VA[a-fA-F0-9]{32}$/.test(verifyServiceSid)) {
-    throw new Error("Invalid Twilio Verify Service SID format.");
-  }
-
-  if (!twilioClient) {
+  if (!twilioClient || cachedAccountSid !== accountSid) {
     twilioClient = twilio(accountSid, authToken);
+    cachedAccountSid = accountSid;
   }
 
-  return twilioClient.verify.v2.services(verifyServiceSid);
+  return twilioClient;
 };
 
-const sendSms = async ({ to }) => {
-  if (!to || !/^\+[1-9]\d{7,14}$/.test(to)) {
-    throw new Error("A valid E.164 mobile number is required.");
+const normalizeE164 = (value) => {
+  const phone = parsePhoneNumberFromString(String(value || ""));
+
+  if (!phone || !phone.isValid() || !phone.number.startsWith("+")) {
+    throw new Error("Invalid international mobile number.");
   }
 
-  return getVerifyService().verifications.create({
-    to,
-    channel: "sms",
-  });
+  if (phone.getType() === "FIXED_LINE") {
+    throw new Error("Please enter a mobile number, not a landline.");
+  }
+
+  return phone.number;
 };
 
-const verifySmsOtp = async ({ to, code }) => {
-  if (!to || !/^\+[1-9]\d{7,14}$/.test(to)) {
-    throw new Error("A valid E.164 mobile number is required.");
+const sendSms = async ({ to, body }) => {
+  const number = normalizeE164(to);
+  const messageBody = String(body || "").trim();
+
+  if (!messageBody) {
+    throw new Error("SMS message cannot be empty.");
   }
 
-  if (!/^\d{4,10}$/.test(String(code))) {
-    return false;
+  const client = getTwilioClient();
+
+  const messagingServiceSid =
+    process.env.TWILIO_MESSAGING_SERVICE_SID?.trim();
+
+  const from = process.env.TWILIO_PHONE_NUMBER?.trim();
+
+  if (!messagingServiceSid && !from) {
+    throw new Error(
+      "Configure TWILIO_PHONE_NUMBER or TWILIO_MESSAGING_SERVICE_SID."
+    );
   }
 
-  const result = await getVerifyService().verificationChecks.create({
-    to,
-    code: String(code),
-  });
+  const options = {
+    to: number,
+    body: messageBody,
+  };
 
-  return result.status === "approved";
+  if (messagingServiceSid) {
+    if (!/^MG[a-fA-F0-9]{32}$/.test(messagingServiceSid)) {
+      throw new Error("Invalid Twilio Messaging Service SID.");
+    }
+
+    options.messagingServiceSid = messagingServiceSid;
+  } else {
+    options.from = from;
+  }
+
+  return client.messages.create(options);
 };
 
 module.exports = {
   sendSms,
-  verifySmsOtp,
+  normalizeE164,
 };

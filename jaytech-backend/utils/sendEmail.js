@@ -1,4 +1,3 @@
-
 const nodemailer = require("nodemailer");
 
 const sendEmail = async ({ to, subject, text }) => {
@@ -34,7 +33,6 @@ const sendEmail = async ({ to, subject, text }) => {
 
     return result;
   } catch (error) {
-    // Preserve the original Gmail error for debugging.
     console.error("ORIGINAL GMAIL ERROR:", {
       code: error.code,
       responseCode: error.responseCode,
