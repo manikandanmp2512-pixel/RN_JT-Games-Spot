@@ -8,9 +8,9 @@ const PendingRegistrationSchema = new mongoose.Schema(
     mobilenumber: { type: String, required: true, trim: true },
     countryCode: { type: String, required: true, trim: true },
     phoneE164: { type: String, required: true, trim: true },
-    emailOtpHash: { type: String, required: true },
-    emailOtpExpiry: { type: Date, required: true },
-    emailOtpAttempts: { type: Number, default: 0 },
+    smsOtpHash: { type: String, required: true },
+    smsOtpExpiry: { type: Date, required: true },
+    smsOtpAttempts: { type: Number, default: 0 },
     passwordHash: { type: String, required: true },
   },
   { timestamps: true }
@@ -18,6 +18,5 @@ const PendingRegistrationSchema = new mongoose.Schema(
 
 PendingRegistrationSchema.index({ email: 1 }, { unique: true });
 PendingRegistrationSchema.index({ phoneE164: 1 }, { unique: true });
-// PendingRegistrationSchema.index({ createdAt: 1 }, { expireAfterSeconds: 900 });
-
+// Keep expiry checked in controller rather than relying on a Mongo TTL index.
 module.exports = mongoose.model("PendingRegistration", PendingRegistrationSchema);

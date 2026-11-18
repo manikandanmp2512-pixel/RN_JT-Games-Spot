@@ -157,12 +157,12 @@ export default function UserScreen() {
             <View style={styles.heroDecorOne} />
             <View style={styles.heroDecorTwo} />
 
-            <View style={styles.heroPill}>
+            {/* <View style={styles.heroPill}>
               <View style={styles.heroPillDot} />
               <Text style={styles.heroPillText}>
                 PLAY {"\u2022"} CONNECT {"\u2022"} COMPLETE
               </Text>
-            </View>
+            </View> */}
 
             <Text style={styles.welcomeHeading}>
               <Text style={styles.heroJay}>Jay Tech</Text>

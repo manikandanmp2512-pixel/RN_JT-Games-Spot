@@ -81,13 +81,17 @@ export default function Register() {
   const [loading, setLoading] = useState(false);
   const [otpLoading, setOtpLoading] = useState(false);
   const [otpModalVisible, setOtpModalVisible] = useState(false);
-  const [emailOtp, setEmailOtp] = useState("");
+  const [mobileOtp, setMobileOtp] = useState("");
   const [countryPickerVisible, setCountryPickerVisible] = useState(false);
   const [countrySearch, setCountrySearch] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const [focusedField, setFocusedField] = useState("");
+
+  // Keep password inputs mounted and preserve their focus.
+  const passwordInputRef = useRef<TextInput>(null);
+  const confirmPasswordInputRef = useRef<TextInput>(null);
 
   // Background animations.
   const floatTop = useRef(new Animated.Value(0)).current;
@@ -541,19 +545,19 @@ export default function Register() {
         confirmPassword: form.confirmPassword,
       });
 
-      if (!result?.success || result.emailOtpSent !== true) {
+      if (!result?.success || result.phoneOtpSent !== true) {
         showError(
           "Registration Failed",
-          result?.message || "Unable to send Gmail OTP."
+          result?.message || "Unable to send mobile SMS OTP."
         );
         return;
       }
 
-      setEmailOtp("");
+      setMobileOtp("");
 
       showSuccess(
-        "Gmail OTP Sent",
-        `A verification code has been sent to ${form.email.trim().toLowerCase()}.`
+        "Mobile OTP Sent",
+        `A verification code has been sent to ${phone.number}.`
       );
 
       setOtpModalVisible(true);
@@ -574,12 +578,12 @@ export default function Register() {
   const handleFinalRegister = async () => {
     if (otpLoading) return;
 
-    const otp = emailOtp.trim();
+    const otp = mobileOtp.trim();
 
     if (!/^\d{6}$/.test(otp)) {
       showError(
         "Invalid OTP",
-        "Please enter the 6-digit OTP sent to your Gmail."
+        "Please enter the 6-digit OTP sent to your mobile."
       );
       return;
     }
@@ -588,20 +592,20 @@ export default function Register() {
       setOtpLoading(true);
 
       const result = await verifyRegisterOtp({
-        email: form.email.trim().toLowerCase(),
-        emailOtp: otp,
+        mobile: getValidatedPhone()?.number || "",
+        otp,
       });
 
       if (!result?.success) {
         showError(
           "OTP Verification Failed",
-          result?.message || "Please check your Gmail OTP."
+          result?.message || "Please check your mobile SMS OTP."
         );
         return;
       }
 
       setOtpModalVisible(false);
-      setEmailOtp("");
+      setMobileOtp("");
 
       showSuccess(
         "Registration Successful",
@@ -619,7 +623,7 @@ export default function Register() {
         "Verification Failed",
         error?.response?.data?.message ||
           error?.message ||
-          "Unable to verify Gmail OTP."
+          "Unable to verify mobile OTP."
       );
     } finally {
       setOtpLoading(false);
@@ -654,15 +658,16 @@ export default function Register() {
   return (
     <KeyboardAvoidingView
       style={styles.safe}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      behavior={Platform.OS === "ios" ? "padding" : undefined }
+      keyboardVerticalOffset={0}
     >
       <StatusBar barStyle="light-content" backgroundColor="#07131D" />
 
       <ScrollView
         contentContainerStyle={styles.scrollContent}
-        keyboardShouldPersistTaps="handled"
+        keyboardShouldPersistTaps="always"
+        keyboardDismissMode="none"
         showsVerticalScrollIndicator={false}
-        automaticallyAdjustKeyboardInsets
       >
         {/* ANIMATED BACKGROUND */}
         <View pointerEvents="none" style={styles.backgroundDecor}>
@@ -725,18 +730,6 @@ export default function Register() {
                 opacity: floatBottom.interpolate({
                   inputRange: [0, 1],
                   outputRange: [0.45, 0.75],
-                }),
-              },
-            ]}
-          />
-
-          <Animated.View
-            style={[
-              styles.verticalAccent,
-              {
-                opacity: accentShimmer.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [0.45, 0.95],
                 }),
               },
             ]}
@@ -840,15 +833,6 @@ export default function Register() {
                     CREATE YOUR PLAYER ACCOUNT
                   </Text>
                 </View>
-                <Pressable
-                  onPress={() => router.replace("/login")}
-                  disabled={loading}
-                  style={styles.accessPill}
-                  >
-                  <Text style={{ color: "#F4A000", fontWeight: "900", fontSize: 11 }}>
-                  ← BACK
-                  </Text>
-                </Pressable>
               </Animated.View>
 
               {/* HEADING */}
@@ -972,7 +956,7 @@ export default function Register() {
                     style={[styles.input, styles.code, styles.countryButton]}
                   >
                     <Text style={styles.countryButtonText}>
-                      {getCountryFlag(selectedCountry)} {form.countryCode} ▾
+                      {getCountryFlag(selectedCountry)} {form.countryCode}
                     </Text>
                   </Pressable>
 
@@ -998,50 +982,61 @@ export default function Register() {
 
               {/* SECURITY AND PASSWORDS */}
               <Animated.View
+                collapsable={false}
                 style={{
                   opacity: securityFade,
                   transform: [{ translateY: securitySlide }],
+                  zIndex: 20,
+                  elevation: 2,
                 }}
               >
                 <Text style={styles.sectionLabel}>SECURITY</Text>
 
                 {/* PASSWORD */}
                 <View
+                  collapsable={false}
                   style={[
                     styles.passwordContainer,
                     focusedField === "password" && styles.passwordFocused,
                   ]}
                 >
                   <TextInput
+                    ref={passwordInputRef}
+                    style={styles.passwordInput}
+                    placeholder="Enter password"
+                    placeholderTextColor="#8295A1"
                     value={form.password}
-                    onChangeText={(v) => update("password", v)}
+                    onChangeText={(value) => update("password", value)}
                     onFocus={() => setFocusedField("password")}
                     onBlur={() => setFocusedField("")}
                     secureTextEntry={!showPassword}
                     autoCapitalize="none"
                     autoCorrect={false}
-                    placeholder="Create password"
-                    placeholderTextColor="#7894A2"
+                    autoComplete="off"
+                    textContentType="none"
+                    importantForAutofill="no"
+                    selectTextOnFocus={false}
                     editable={!loading && !otpLoading}
-                    style={styles.passwordInput}
+                    underlineColorAndroid="transparent"
                   />
 
                   <Pressable
                     style={styles.showButton}
-                    onPress={() => setShowPassword((current) => !current)}
+                    onPress={() => setShowPassword((previous) => !previous)}
+                    hitSlop={6}
                     disabled={loading || otpLoading}
-                    hitSlop={10}
                   >
                     <Feather
                       name={showPassword ? "eye-off" : "eye"}
                       size={20}
-                      color={showPassword ? "#62DCE0" : "#F4A000"}
+                      color="#F4A000"
                     />
                   </Pressable>
                 </View>
 
                 {/* CONFIRM PASSWORD */}
                 <View
+                  collapsable={false}
                   style={[
                     styles.passwordContainer,
                     focusedField === "confirmPassword" &&
@@ -1049,6 +1044,7 @@ export default function Register() {
                   ]}
                 >
                   <TextInput
+                    ref={confirmPasswordInputRef}
                     value={form.confirmPassword}
                     onChangeText={(v) => update("confirmPassword", v)}
                     onFocus={() => setFocusedField("confirmPassword")}
@@ -1056,9 +1052,14 @@ export default function Register() {
                     secureTextEntry={!showConfirmPassword}
                     autoCapitalize="none"
                     autoCorrect={false}
+                    autoComplete="off"
+                    textContentType="none"
+                    importantForAutofill="no"
+                    selectTextOnFocus={false}
                     placeholder="Confirm password"
                     placeholderTextColor="#7894A2"
                     editable={!loading && !otpLoading}
+                    underlineColorAndroid="transparent"
                     style={styles.passwordInput}
                   />
 
@@ -1068,7 +1069,7 @@ export default function Register() {
                       setShowConfirmPassword((current) => !current)
                     }
                     disabled={loading || otpLoading}
-                    hitSlop={10}
+                    hitSlop={6}
                   >
                     <Feather
                       name={showConfirmPassword ? "eye-off" : "eye"}
@@ -1079,8 +1080,7 @@ export default function Register() {
                 </View>
 
                 <Text style={styles.passwordHint}>
-                  Minimum 6 characters, including uppercase, lowercase and a
-                  number.
+                  Min 6 chars, including upper and lower cases and a number.
                 </Text>
               </Animated.View>
 
@@ -1216,7 +1216,7 @@ export default function Register() {
           </View>
         </Modal>
 
-        {/* GMAIL OTP MODAL */}
+        {/* MOBILE SMS OTP MODAL */}
         <Modal
           visible={otpModalVisible}
           transparent
@@ -1239,23 +1239,23 @@ export default function Register() {
                 colors={["#FFE0A0", "#F4A000"]}
                 style={styles.otpIcon}
               >
-                <Feather name="mail" size={27} color="#071E2B" />
+                <Feather name="smartphone" size={27} color="#071E2B" />
               </LinearGradient>
 
-              <Text style={styles.modalTitle}>Verify your Gmail</Text>
+              <Text style={styles.modalTitle}>Verify your Mobile</Text>
 
               <Text style={styles.otpDescription}>
                 Enter the six-digit code sent to
               </Text>
 
               <Text style={styles.otpEmail}>
-                {form.email.trim().toLowerCase()}
+                {`${form.countryCode}${form.mobilenumber}`}
               </Text>
 
               <TextInput
-                value={emailOtp}
+                value={mobileOtp}
                 onChangeText={(v) =>
-                  setEmailOtp(v.replace(/\D/g, "").slice(0, 6))
+                  setMobileOtp(v.replace(/\D/g, "").slice(0, 6))
                 }
                 placeholder="000000"
                 placeholderTextColor="#7894A2"
@@ -1290,7 +1290,7 @@ export default function Register() {
                 disabled={otpLoading}
                 onPress={() => {
                   setOtpModalVisible(false);
-                  setEmailOtp("");
+                  setMobileOtp("");
                 }}
                 style={styles.cancelButton}
               >
@@ -1310,6 +1310,7 @@ export default function Register() {
 
 const styles = StyleSheet.create({
   safe: {
+    marginTop: 30,
     flex: 1,
     backgroundColor: "#07131D",
   },
@@ -1337,6 +1338,8 @@ const styles = StyleSheet.create({
     width: 310,
     height: 310,
     borderRadius: 155,
+    // borderColor: "#F4A000",
+    // borderWidth: 1,
     top: -170,
     right: -125,
     backgroundColor: "#173D4B",
@@ -1348,29 +1351,21 @@ const styles = StyleSheet.create({
     width: 250,
     height: 250,
     borderRadius: 125,
+    // borderColor: "#F4A000",
+    // borderWidth: 1,
     bottom: -130,
     left: -125,
     backgroundColor: "#183849",
     opacity: 0.7,
   },
 
-  verticalAccent: {
-    position: "absolute",
-    top: 0,
-    bottom: 0,
-    right: 0,
-    width: 4,
-    backgroundColor: "#F4A000",
-    opacity: 0.85,
-  },
-
   gridLineOne: {
     position: "absolute",
     width: 260,
-    height: 1,
+    height: 3,
     top: "23%",
     right: -100,
-    backgroundColor: "#355464",
+    backgroundColor: "#F4A000",
     opacity: 0.4,
     transform: [{ rotate: "-35deg" }],
   },
@@ -1378,10 +1373,10 @@ const styles = StyleSheet.create({
   gridLineTwo: {
     position: "absolute",
     width: 230,
-    height: 1,
+    height: 3,
     bottom: "18%",
     left: -100,
-    backgroundColor: "#355464",
+    backgroundColor: "#F4A000",
     opacity: 0.35,
     transform: [{ rotate: "-35deg" }],
   },
@@ -1471,7 +1466,7 @@ const styles = StyleSheet.create({
 
   title: {
     color: "#F4A000",
-    fontSize: 33,
+    fontSize: 28,
     fontFamily: "Red Hat Display",
     fontWeight: "900",
     lineHeight: 39,
@@ -1554,6 +1549,7 @@ const styles = StyleSheet.create({
 
   passwordContainer: {
     position: "relative",
+    width: "100%",
     flexDirection: "row",
     alignItems: "center",
     marginBottom: 10,
@@ -1561,7 +1557,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#31566A",
     backgroundColor: "#0B1D27",
-    minHeight: 54,
+    minHeight: 56,
+    paddingLeft: 12,
+    paddingRight: 4,
+    overflow: "visible",
   },
 
   passwordFocused: {
@@ -1576,17 +1575,22 @@ const styles = StyleSheet.create({
   passwordInput: {
     flex: 1,
     minWidth: 0,
-    height: 48,
+    height: 52,
     color: "#FFFFFF",
-    paddingLeft: 13,
-    paddingRight: 5,
+    paddingHorizontal: 4,
+    paddingVertical: 0,
     fontSize: 14,
     borderRadius: 14,
+    backgroundColor: "transparent",
+    textAlignVertical: "center",
+    includeFontPadding: false,
+    margin: 0,
   },
 
   showButton: {
     width: 44,
     height: 50,
+    flexShrink: 0,
     justifyContent: "center",
     alignItems: "center",
   },

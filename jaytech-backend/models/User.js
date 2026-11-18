@@ -30,7 +30,6 @@ const UserSchema = new mongoose.Schema(
     forgotOtpExpiry: Date,
     forgotOtpVerified: { type: Boolean, default: false },
     forgotOtpAttempts: { type: Number, default: 0 },
-    forgotOtpAttempts: { type: Number, default: 0 },
   },
   { timestamps: true }
 );

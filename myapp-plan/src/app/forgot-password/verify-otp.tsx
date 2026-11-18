@@ -25,10 +25,10 @@ const AnimatedLinearGradient =
 
 export default function ForgotPasswordVerifyOtpScreen() {
   const { isDark } = useAppTheme();
-  const params = useLocalSearchParams<{ email?: string | string[] }>();
+  const params = useLocalSearchParams<{ mobile?: string | string[] }>();
 
-  const email = String(
-    Array.isArray(params.email) ? params.email[0] || "" : params.email || ""
+  const mobile = String(
+    Array.isArray(params.mobile) ? params.mobile[0] || "" : params.mobile || ""
   )
     .trim()
     .toLowerCase();
@@ -181,10 +181,10 @@ export default function ForgotPasswordVerifyOtpScreen() {
 
     setOtpError("");
 
-    if (!email) {
+    if (!mobile) {
       showError(
-        "Gmail Missing",
-        "Please start the forgot password process again."
+        "Mobile Number Missing",
+        "Please start the password recovery process again."
       );
       return;
     }
@@ -198,8 +198,8 @@ export default function ForgotPasswordVerifyOtpScreen() {
       setLoading(true);
 
       const result = await verifyForgotOtp({
-        email,
-        emailOtp: otp.trim(),
+        mobile,
+        otp: otp.trim(),
       });
 
       if (!result?.success) {
@@ -211,16 +211,16 @@ export default function ForgotPasswordVerifyOtpScreen() {
 
       showSuccess(
         "OTP Verified",
-        result?.message || "Gmail OTP verified successfully."
+        result?.message || "Mobile SMS OTP verified successfully."
       );
 
       router.replace({
         pathname: "/forgot-password/reset-password",
-        params: { email },
+        params: { mobile },
       });
     } catch (error: any) {
       console.error(
-        "FORGOT GMAIL OTP VERIFY ERROR:",
+        "FORGOT MOBILE OTP VERIFY ERROR:",
         error?.response?.data || error
       );
 
@@ -437,12 +437,12 @@ export default function ForgotPasswordVerifyOtpScreen() {
               </Animated.View>
 
                <Text style={styles.title}>OTP send in below mail</Text>
-                <Text style={styles.emailText}>{email}</Text>
+                <Text style={styles.mobileText}>{mobile}</Text>
 
 
               {/* OTP input */}
               <Text style={[styles.subtitle, { color: muted }]}>
-                Enter the six-digit code from your registered Gmail.
+                Enter the six-digit code sent to your registered mobile.
               </Text>
               <TextInput
                 value={otp}
@@ -521,7 +521,7 @@ export default function ForgotPasswordVerifyOtpScreen() {
                 </Pressable>
               </View>
 
-              {/* Change Gmail */}
+              {/* Change Mobile */}
               <Pressable
                 disabled={loading}
                 onPress={() => router.replace("/forgot-password")}
@@ -531,7 +531,7 @@ export default function ForgotPasswordVerifyOtpScreen() {
                 ]}
               >
                 <Text style={styles.backText}>
-                  ← Change Gmail address
+                  ← Change mobile number
                 </Text>
               </Pressable>
 
@@ -719,14 +719,14 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
 
-  emailBox: {
+  mobileBox: {
     borderRadius: 14,
     borderWidth: 1,
     padding: 14,
     marginBottom: 23,
   },
 
-  emailText: {
+  mobileText: {
     color: "#F4A000",
     fontSize: 13,
     fontWeight: "600",

@@ -8,8 +8,8 @@ import axios from "axios";
 // Local backend (works when your phone and computer are on the same network).
 const API_BASE_URL =
   process.env.EXPO_PUBLIC_API_URL?.trim() ||
-  // "http://192.168.31.214:5000";
-  "https://jaytech-backend-4.onrender.com";
+  "http://192.168.31.214:5000";
+  // "https://jaytech-backend-4.onrender.com";
 
 const API_URL = API_BASE_URL.endsWith("/api")
   ? API_BASE_URL

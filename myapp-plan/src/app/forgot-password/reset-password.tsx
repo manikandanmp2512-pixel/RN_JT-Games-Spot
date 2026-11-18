@@ -29,10 +29,10 @@ const AnimatedLinearGradient =
 
 export default function ResetPasswordScreen() {
   const { isDark } = useAppTheme();
-  const params = useLocalSearchParams<{ email?: string | string[] }>();
+  const params = useLocalSearchParams<{ mobile?: string | string[] }>();
 
-  const email = String(
-    Array.isArray(params.email) ? params.email[0] || "" : params.email || ""
+  const mobile = String(
+    Array.isArray(params.mobile) ? params.mobile[0] || "" : params.mobile || ""
   )
     .trim()
     .toLowerCase();
@@ -190,10 +190,10 @@ export default function ResetPasswordScreen() {
     setPasswordError("");
     setConfirmPasswordError("");
 
-    if (!email) {
+    if (!mobile) {
       showError(
-        "Gmail Missing",
-        "Please start the forgot password process again."
+        "Mobile Number Missing",
+        "Please start the password recovery process again."
       );
       return;
     }
@@ -218,7 +218,7 @@ export default function ResetPasswordScreen() {
     try {
       setLoading(true);
 
-      const result = await resetPassword({ email, password });
+      const result = await resetPassword({ mobile, password });
 
       if (!result?.success) {
         const message = result?.message || "Password reset failed.";
@@ -433,11 +433,11 @@ export default function ResetPasswordScreen() {
                 Create a New Password
               </Text>
               <Text
-                  style={styles.emailText}
+                  style={styles.mobileText}
                   numberOfLines={1}
                   adjustsFontSizeToFit
                 >
-                  {email}
+                  {mobile}
                 </Text>
 
               {/* New password */}
@@ -788,7 +788,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
 
-  emailBox: {
+  mobileBox: {
     backgroundColor: "#17394B",
     borderRadius: 14,
     borderWidth: 1,
@@ -799,7 +799,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
 
-  emailLabel: {
+  mobileLabel: {
     color: "#9DB5C0",
     fontSize: 9,
     fontWeight: "900",
@@ -807,7 +807,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
 
-  emailText: {
+  mobileText: {
     color: "#F4A000",
     fontSize: 14,
     fontWeight: "800",

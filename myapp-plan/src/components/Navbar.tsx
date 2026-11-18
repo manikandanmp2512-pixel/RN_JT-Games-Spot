@@ -126,7 +126,7 @@ export default function Navbar() {
     >
       {/* Gradient outline around the complete navbar */}
       <LinearGradient
-        colors={["#00CFFF", "#176BFF", "#7548FF", "#24375F"]}
+        colors={["#00CFFF", "#176BFF", "#7548FF", "#334978"]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.borderGradient}
@@ -200,11 +200,9 @@ export default function Navbar() {
                     ]}
                   >
                     {userName}
+                    <View style={styles.statusDot} />
+                    <Text style={styles.statusText}>ONLINE</Text>
                   </Text>
-                  <View style={styles.headerStatusdot}>
-                  <View style={styles.statusDot} />
-                  <Text style={styles.statusText}>ONLINE</Text>
-                  </View>
                 </View>
               ) : (
                 <Text
@@ -426,14 +424,6 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
 
-  headerStatusdot: {
-    flexDirection: "row",
-    alignItems: "baseline",
-    gap: 5,
-    paddingHorizontal: 7,
-    paddingVertical: 8,
-  },
-
   headerStatustitle: {
     flexDirection: "row",
     alignItems: "baseline",
@@ -443,6 +433,7 @@ const styles = StyleSheet.create({
   },
 
   statusDot: {
+    marginLeft: 10,
     width: 7,
     height: 7,
     borderRadius: 4,
@@ -450,6 +441,7 @@ const styles = StyleSheet.create({
   },
 
   statusText: {
+    marginLeft: 5,
     fontSize: 8,
     fontWeight: "900",
     color: "#B8D7FF",

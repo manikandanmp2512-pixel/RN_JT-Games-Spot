@@ -24,16 +24,15 @@ import { sendForgotPasswordOtp } from "@/services/authApi";
 const AnimatedLinearGradient =
   Animated.createAnimatedComponent(LinearGradient);
 
-const GMAIL_REGEX =
-  /^[a-zA-Z0-9](?:[a-zA-Z0-9.]{0,62}[a-zA-Z0-9])?@gmail\.com$/i;
+const E164_REGEX = /^\+[1-9]\d{7,14}$/;
 
 export default function ForgotPasswordScreen() {
   const { isDark } = useAppTheme();
 
-  const [email, setEmail] = useState("");
+  const [mobile, setMobile] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const normalizedEmail = email.trim().toLowerCase();
+  const normalizedMobile = mobile.trim().replace(/[\s()-]/g, "");
 
   const background = isDark ? "#071E2B" : "#071E2B";
   const card = isDark ? "#102F40" : "#071E2B";
@@ -218,12 +217,11 @@ export default function ForgotPasswordScreen() {
     if (loading) return;
 
     if (
-      !GMAIL_REGEX.test(normalizedEmail) ||
-      normalizedEmail.includes("..")
+      !E164_REGEX.test(normalizedMobile)
     ) {
       showError(
-        "Invalid Gmail",
-        "Please enter your registered Gmail address."
+        "Invalid Mobile Number",
+        "Enter your registered mobile number in international format, including +country code."
       );
       return;
     }
@@ -232,29 +230,29 @@ export default function ForgotPasswordScreen() {
       setLoading(true);
 
       const result = await sendForgotPasswordOtp({
-        email: normalizedEmail,
+        mobile: normalizedMobile,
       });
 
       if (!result?.success) {
         showError(
           "OTP Failed",
-          result?.message || "Unable to send Gmail OTP."
+          result?.message || "Unable to send SMS OTP."
         );
         return;
       }
 
       showSuccess(
-        "Gmail OTP Sent",
-        result?.message || "Check your Gmail inbox."
+        "SMS OTP Sent",
+        result?.message || "Check your mobile messages."
       );
 
       router.push({
         pathname: "/forgot-password/verify-otp",
-        params: { email: normalizedEmail },
+        params: { mobile: normalizedMobile },
       });
     } catch (error: any) {
       console.error(
-        "SEND FORGOT GMAIL OTP ERROR:",
+        "SEND FORGOT SMS OTP ERROR:",
         error?.response?.data || error
       );
 
@@ -262,7 +260,7 @@ export default function ForgotPasswordScreen() {
         "OTP Failed",
         error?.response?.data?.message ||
           error?.message ||
-          "Unable to send Gmail OTP."
+          "Unable to send SMS OTP."
       );
     } finally {
       setLoading(false);
@@ -312,7 +310,6 @@ export default function ForgotPasswordScreen() {
           ]}
         />
 
-        <View style={styles.verticalAccent} />
         <View style={styles.gridLineOne} />
         <View style={styles.gridLineTwo} />
       </View>
@@ -375,34 +372,7 @@ export default function ForgotPasswordScreen() {
                   ]}
                 />
 
-                {/* Brand */}
-                {/* <View style={styles.brandRow}>
-                  <View style={styles.logo}>
-                    <Text style={styles.logoText}>J</Text>
-                  </View>
-
-                  <View>
-                    <Animated.Text
-                      style={[
-                        styles.brand,
-                        { color: animatedTitleColor },
-                      ]}
-                    >
-                      JAY TECH
-                    </Animated.Text>
-
-                    <Text
-                      style={[
-                        styles.brandCaption,
-                        { color: muted },
-                      ]}
-                    >
-                      TECHNOLOGY & INNOVATION
-                    </Text>
-                  </View>
-                </View> */}
-
-                {/* Recovery icon */}
+               {/* Recovery icon */}
                 <Animated.View
                   style={[
                     styles.iconCircle,
@@ -426,15 +396,15 @@ export default function ForgotPasswordScreen() {
                 </Animated.Text>
 
                 <Text style={[styles.label]}>
-                  Registered G-Mail
+                  Registered Mobile Number
                 </Text>
 
                 <TextInput
-                  value={email}
-                  onChangeText={setEmail}
-                  placeholder="Enter Your Mail"
+                  value={mobile}
+                  onChangeText={setMobile}
+                  placeholder="Enter mobile with +country code"
                   placeholderTextColor="#7894A2"
-                  keyboardType="email-address"
+                  keyboardType="phone-pad"
                   autoCapitalize="none"
                   autoCorrect={false}
                   editable={!loading}
@@ -480,7 +450,7 @@ export default function ForgotPasswordScreen() {
                         style={styles.buttonGradient}
                       >
                         <Text style={styles.buttonText}>
-                          SEND VERIFICATION CODE  →
+                          SEND VERIFICATION CODE
                         </Text>
                       </LinearGradient>
                     )}
@@ -496,13 +466,10 @@ export default function ForgotPasswordScreen() {
                   ]}
                 >
                   <Text style={styles.backText}>
-                    ← BACK
+                    ← Back
                   </Text>
                 </Pressable>
 
-                <Text style={[styles.footer, { color: muted }]}>
-                  YOUR ACCOUNT SECURITY MATTERS
-                </Text>
               </LinearGradient>
             </LinearGradient>
           </Animated.View>
@@ -514,6 +481,7 @@ export default function ForgotPasswordScreen() {
 
 const styles = StyleSheet.create({
   root: {
+    marginTop: 30,
     flex: 1,
     overflow: "hidden",
   },
@@ -534,7 +502,7 @@ const styles = StyleSheet.create({
     borderRadius: 130,
     top: -115,
     right: -90,
-    backgroundColor: "rgba(244,160,0,0.10)",
+    backgroundColor: "#183849",
   },
 
   bottomOrb: {
@@ -544,35 +512,26 @@ const styles = StyleSheet.create({
     borderRadius: 150,
     bottom: -130,
     left: -130,
-    backgroundColor: "rgba(98,220,224,0.09)",
-  },
-
-  verticalAccent: {
-    position: "absolute",
-    width: 2,
-    height: "55%",
-    top: "22%",
-    right: 18,
-    backgroundColor: "rgba(244,160,0,0.13)",
+    backgroundColor: "#183849",
   },
 
   gridLineOne: {
     position: "absolute",
     width: 450,
-    height: 1,
+    height: 2,
     top: "23%",
     left: -100,
-    backgroundColor: "rgba(98,220,224,0.12)",
+    backgroundColor: "#F4A000",
     transform: [{ rotate: "-28deg" }],
   },
 
   gridLineTwo: {
     position: "absolute",
     width: 450,
-    height: 1,
+    height: 2,
     bottom: "22%",
     right: -100,
-    backgroundColor: "rgba(244,160,0,0.12)",
+    backgroundColor: "#F4A000",
     transform: [{ rotate: "-28deg" }],
   },
 
@@ -663,7 +622,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#F4A000",
     alignItems: "center",
     justifyContent: "center",
-    marginLeft: 160,
+    marginLeft: 115,
     marginBottom: 10,
     shadowColor: "#F4A000",
     shadowOffset: { width: 0, height: 5 },
@@ -674,8 +633,9 @@ const styles = StyleSheet.create({
 
   iconText: {
     color: "#070390",
-    fontSize: 32,
+    fontSize: 40,
     fontWeight: "900",
+    marginBottom: 7,
   },
 
   eyebrow: {
@@ -686,19 +646,13 @@ const styles = StyleSheet.create({
   },
 
   title: {
-    fontSize: 34,
-    marginLeft: 60,
+    fontSize: 28,
+    marginLeft: 30,
     marginBottom: 15,
     fontWeight: "900",
     lineHeight: 41,
     marginTop: 9,
-  },
-
-  subtitle: {
-    fontSize: 13,
-    lineHeight: 21,
-    marginTop: 13,
-    marginBottom: 28,
+    fontFamily: "Red Hat Display",
   },
 
   label: {
@@ -707,6 +661,7 @@ const styles = StyleSheet.create({
     fontWeight: "900",
     letterSpacing: 1.3,
     marginBottom: 9,
+    fontFamily: "Red Hat Display",
   },
 
   input: {
@@ -714,7 +669,7 @@ const styles = StyleSheet.create({
     borderRadius: 15,
     color: "#FFFFFF",
     paddingHorizontal: 15,
-    fontSize: 14,
+    fontSize: 12,
     borderWidth: 1,
   },
 
@@ -760,17 +715,11 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
 
-  footer: {
-    textAlign: "center",
-    fontSize: 9,
-    letterSpacing: 1.2,
-    marginTop: 24,
-  },
   passwordInput: {
     color: "#FFFFFF",
     paddingLeft: 13,
     paddingRight: 5,
-    fontSize: 18,
+    fontSize: 15,
     borderRadius: 14,
   },
 });

@@ -13,12 +13,12 @@ import { ChessRewardModeId } from "@/types/chessRewards";
 /* Socket URL                                                                 */
 /* -------------------------------------------------------------------------- */
 
-// const SOCKET_URL = process.env.EXPO_PUBLIC_SOCKET_URL || "http://192.168.31.214:5000";
+const SOCKET_URL = process.env.EXPO_PUBLIC_SOCKET_URL || "http://192.168.31.214:5000";
 
-const SOCKET_URL = (
-  process.env.EXPO_PUBLIC_SOCKET_URL?.trim() ||
-  "https://jaytech-backend-4.onrender.com"
-).replace(/\/+$/, "");
+// const SOCKET_URL = (
+//   process.env.EXPO_PUBLIC_SOCKET_URL?.trim() ||
+//   "https://jaytech-backend-4.onrender.com"
+// ).replace(/\/+$/, "");
 
 /* -------------------------------------------------------------------------- */
 /* Player                                                                     */

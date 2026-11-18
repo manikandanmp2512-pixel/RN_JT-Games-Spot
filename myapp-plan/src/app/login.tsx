@@ -38,6 +38,7 @@ export default function LoginScreen() {
   const [passwordFocused, setPasswordFocused] = useState(false);
 
   const scrollRef = useRef<ScrollView>(null);
+  const passwordInputRef = useRef<TextInput>(null);
 
   // Ambient background animations.
   const floatTop = useRef(new Animated.Value(0)).current;
@@ -422,16 +423,17 @@ export default function LoginScreen() {
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      behavior={Platform.OS === "ios" ? "padding" : undefined }
+      keyboardVerticalOffset={0}
     >
       <StatusBar barStyle="light-content" backgroundColor="#07131D" />
 
       <ScrollView
         ref={scrollRef}
         contentContainerStyle={styles.scrollContent}
-        keyboardShouldPersistTaps="handled"
+        keyboardShouldPersistTaps="always"
         showsVerticalScrollIndicator={false}
-        automaticallyAdjustKeyboardInsets
+        keyboardDismissMode="none"
       >
         <View pointerEvents="none" style={styles.backgroundDecor}>
           <Animated.View
@@ -500,18 +502,6 @@ export default function LoginScreen() {
 
           <Animated.View
             style={[
-              styles.verticalAccent,
-              {
-                opacity: accentShimmer.interpolate({
-                  inputRange: [0, 1],
-                  outputRange: [0.45, 0.95],
-                }),
-              },
-            ]}
-          />
-
-          <Animated.View
-            style={[
               styles.gridLineOne,
               {
                 opacity: accentShimmer.interpolate({
@@ -569,7 +559,7 @@ export default function LoginScreen() {
               >
                 <View style={styles.brandGroup}>
                   <AnimatedLinearGradient
-                    colors={["#FFE0A0", "#F4A000", "#C77800"]}
+                    colors={["#f6f4f1", "#F4A000", "#C77800"]}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
                     style={[
@@ -601,22 +591,15 @@ export default function LoginScreen() {
                   </View>
                 </View>
 
-                {/* <LinearGradient
-                  colors={["#193B49", "#102733"]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.accessPill}
-                > */}
                   <Pressable
                     onPress={() => router.replace("/")}
                     disabled={loading}
                     style={styles.accessPill}
                   >
                     <Text style={{ color: "#F4A000", fontWeight: "900", fontSize: 11 }}>
-                      ← BACK
+                      ← Back
                     </Text>
                   </Pressable>
-                {/* </LinearGradient> */}
 
               </Animated.View>
 
@@ -647,7 +630,7 @@ export default function LoginScreen() {
                   <Animated.Text
                     style={[styles.cardTitle, { color: titleAnimatedColor }]}
                   >
-                    Welcome back
+                    Welcome Back
                   </Animated.Text>
 
                   <Animated.Text
@@ -670,14 +653,14 @@ export default function LoginScreen() {
                       transform: [
                         {
                           rotate: floatBottom.interpolate({
-                            inputRange: [0, 1],
-                            outputRange: ["0deg", "5deg"],
+                            inputRange: [0, 5],
+                            outputRange: ["45deg", "0deg"],
                           }),
                         },
                         {
                           scale: floatBottom.interpolate({
-                            inputRange: [0, 1],
-                            outputRange: [1, 1.06],
+                            inputRange: [0, 5],
+                            outputRange: [1, 2.06],
                           }),
                         },
                       ],
@@ -685,7 +668,7 @@ export default function LoginScreen() {
                   ]}
                 >
                   <LinearGradient
-                    colors={["#244F65", "#142F3D"]}
+                    colors={["#10252f", "#124b67"]}
                     style={styles.cardIconGradient}
                   >
                     <Text style={styles.cardIconText}>♞</Text>
@@ -696,7 +679,7 @@ export default function LoginScreen() {
               {/* MOBILE NUMBER */}
               <Animated.View
                 style={{
-                  opacity: mobileFade,
+                  opacity: mobileFade, 
                   transform: [{ translateY: mobileSlide }],
                 }}
               >
@@ -716,10 +699,6 @@ export default function LoginScreen() {
                       mobileFocused && styles.inputFocusedShadow,
                     ]}
                   >
-                    {/* <View style={styles.inputIconWrap}>
-                      <Text style={styles.inputIcon}>☎</Text>
-                    </View> */}
-
                     <TextInput
                       value={mobilenumber}
                       onChangeText={(value) =>
@@ -743,16 +722,14 @@ export default function LoginScreen() {
 
               {/* PASSWORD */}
               <Animated.View
+                collapsable={false}
                 style={{
                   opacity: passwordFade,
                   transform: [{ translateY: passwordSlide }],
                 }}
               >
-                <View style={styles.passwordLabelRow}>
-                  <Text style={styles.fieldHint}>MIN. 6 CHARACTERS</Text>
-                </View>
-
                 <LinearGradient
+                  collapsable={false}
                   colors={
                     passwordFocused
                       ? ["#FFE0A0", "#F4A000", "#62DCE0"]
@@ -763,20 +740,20 @@ export default function LoginScreen() {
                   style={styles.inputBorderOuter}
                 >
                   <View
+                    collapsable={false}
                     style={[
                       styles.passwordContainer,
                       passwordFocused && styles.inputFocusedShadow,
                     ]}
                   >
-                    {/* <View style={styles.inputIconWrap}>
-                      <Text style={styles.inputIcon}>▣</Text>
-                    </View> */}
-
                     <TextInput
+                      ref={passwordInputRef}
                       value={password}
                       onChangeText={setPassword}
+                      onPressIn={() => passwordInputRef.current?.focus()}
                       onFocus={() => setPasswordFocused(true)}
                       onBlur={() => setPasswordFocused(false)}
+                      showSoftInputOnFocus
                       placeholder="Enter your password"
                       placeholderTextColor="#78909D"
                       secureTextEntry={!showPassword}
@@ -792,7 +769,18 @@ export default function LoginScreen() {
 
                     {/* PASSWORD SHOW / HIDE ICON */}
                     <Pressable
-                      onPress={() => setShowPassword((current) => !current)}
+                      onPress={() => {
+                        const wasFocused =
+                          passwordInputRef.current?.isFocused() ?? false;
+
+                        setShowPassword((current) => !current);
+
+                        if (wasFocused) {
+                          requestAnimationFrame(() => {
+                            passwordInputRef.current?.focus();
+                          });
+                        }
+                      }}
                       disabled={loading}
                       hitSlop={10}
                       style={styles.visibilityButton}
@@ -942,6 +930,7 @@ export default function LoginScreen() {
 
 const styles = StyleSheet.create({
   container: {
+    marginTop: 30,
     flex: 1,
     backgroundColor: "#07131D",
   },
@@ -952,7 +941,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 22,
     paddingTop: 34,
     paddingBottom: 28,
-    overflow: "hidden",
   },
 
   backgroundDecor: {
@@ -971,7 +959,7 @@ const styles = StyleSheet.create({
     borderRadius: 155,
     top: -170,
     right: -125,
-    backgroundColor: "#173D4B",
+    backgroundColor: "#215f75",
     opacity: 0.72,
   },
 
@@ -982,38 +970,28 @@ const styles = StyleSheet.create({
     borderRadius: 125,
     bottom: -130,
     left: -125,
-    backgroundColor: "#183849",
+    backgroundColor: "#215f75",
     opacity: 0.7,
-  },
-
-  verticalAccent: {
-    position: "absolute",
-    top: 0,
-    bottom: 0,
-    right: 0,
-    width: 4,
-    backgroundColor: "#F4A000",
-    opacity: 0.85,
   },
 
   gridLineOne: {
     position: "absolute",
-    width: 260,
-    height: 1,
-    top: "23%",
+    width: 360,
+    height: 2,
+    top: "28%",
     right: -100,
-    backgroundColor: "#355464",
+    backgroundColor: "#F4A000",
     opacity: 0.4,
     transform: [{ rotate: "-35deg" }],
   },
 
   gridLineTwo: {
     position: "absolute",
-    width: 230,
-    height: 1,
-    bottom: "18%",
+    width: 360,
+    height: 2,
+    bottom: "22%",
     left: -100,
-    backgroundColor: "#355464",
+    backgroundColor: "#F4A000",
     opacity: 0.35,
     transform: [{ rotate: "-35deg" }],
   },
@@ -1143,7 +1121,8 @@ const styles = StyleSheet.create({
     color: "#F4A000",
     fontSize: 23,
     fontWeight: "900",
-    letterSpacing: -0.5,
+    letterSpacing: 2.5,
+    fontFamily: "Red Hat Display",
   },
 
   headingSubtitle: {
@@ -1175,18 +1154,11 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
 
-  fieldLabel: {
-    color: "#C0CED4",
-    fontSize: 9,
-    fontWeight: "900",
-    letterSpacing: 1.5,
-    marginBottom: 9,
-  },
-
   inputBorderOuter: {
     width: "100%",
     borderRadius: 14,
     padding: 1.3,
+    marginBottom: 18,
   },
 
   inputShell: {
@@ -1217,17 +1189,6 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
 
-  inputIconWrap: {
-    width: 30,
-    height: 30,
-    borderRadius: 9,
-    backgroundColor: "#193542",
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 10,
-    flexShrink: 0,
-  },
-
   inputIcon: {
     color: "#F4A000",
     fontSize: 15,
@@ -1253,20 +1214,9 @@ const styles = StyleSheet.create({
     marginRight: -10,
   },
 
-  passwordLabelRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "flex-end",
-    marginTop: 21,
-    marginBottom: 9,
-  },
-
-  fieldHint: {
-    color: "#6F8793",
-    fontSize: 8,
-    fontWeight: "800",
-    letterSpacing: 0.8,
-    alignSelf: "flex-end",
+  passwordbx: {
+    marginTop: 30,
+    borderRadius: 8,
   },
 
   passwordInput: {
@@ -1284,7 +1234,8 @@ const styles = StyleSheet.create({
     paddingLeft: 20,
     borderRadius: 12.7,
     marginBottom: 0,
-    marginLeft: -11,
+    marginLeft: 0,
+    marginRight: 0,
   },
 
   // Password eye icon button.
@@ -1301,7 +1252,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginTop: 19,
+    marginTop: 8,
     marginBottom: 23,
   },
 
